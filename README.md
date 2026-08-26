@@ -457,29 +457,7 @@ This provides traceability across the autonomous recovery lifecycle.
 
 ## Architecture
 
-```text
-┌──────────────────────────────┐
-│        React Frontend        │
-│           Vercel             │
-└──────────────┬───────────────┘
-               │
-               │ HTTPS API
-               ▼
-┌──────────────────────────────┐
-│      Node.js + Express       │
-│          RecoverAI           │
-│           Render             │
-└───────┬────────┬────────┬────┘
-        │        │        │
-        │        │        │
-        ▼        ▼        ▼
-   MongoDB    Gemini    Razorpay
-    Atlas       API     Test Mode
-                          │
-                          │ payment_link.paid
-                          ▼
-                 RecoverAI Webhook
-```
+![RecoverAI Architecture](docs/architecture.svg)
 
 ---
 

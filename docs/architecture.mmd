@@ -1,0 +1,47 @@
+flowchart TD
+
+    A[React Frontend<br/>Vercel]
+
+    B[Node.js + Express Backend<br/>Render]
+
+    C[MongoDB Atlas]
+
+    D[Gemini AI]
+
+    E[Razorpay Test Mode]
+
+    F[Deterministic Rule Engine]
+
+    G[Policy & Guardrails]
+
+    H[Recovery Executor]
+
+    I[Webhook Handler]
+
+    J[Audit Trail & Analytics]
+
+    A -->|HTTPS API| B
+
+    B --> F
+
+    F -->|Known failure| G
+    F -->|Unknown or uncertain failure| D
+
+    D -->|Recommendation + confidence| G
+
+    G -->|Approved action| H
+    G -->|Low confidence / limit reached| J
+
+    H -->|Read / write recovery state| C
+
+    H -->|Create payment link| E
+
+    E -->|payment_link.paid webhook| I
+
+    I -->|Verify signature + update recovery state| C
+
+    B -->|Read / write application data| C
+
+    B --> J
+
+    C --> J
