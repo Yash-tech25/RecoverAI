@@ -1,0 +1,506 @@
+[
+  {
+    "paymentId": "pay_001",
+    "customerId": "cust_001",
+    "customerType": "returning",
+    "amount": 2500,
+    "status": "failed",
+    "method": "upi",
+    "failureReason": "timeout",
+    "attemptCount": 1
+  },
+  {
+    "paymentId": "pay_002",
+    "customerId": "cust_002",
+    "customerType": "new",
+    "amount": 4200,
+    "status": "failed",
+    "method": "card",
+    "failureReason": "insufficient_funds",
+    "attemptCount": 1
+  },
+  {
+    "paymentId": "pay_003",
+    "customerId": "cust_003",
+    "customerType": "returning",
+    "amount": 1800,
+    "status": "success",
+    "method": "upi",
+    "failureReason": null,
+    "attemptCount": 1
+  },
+  {
+    "paymentId": "pay_004",
+    "customerId": "cust_004",
+    "customerType": "new",
+    "amount": 3500,
+    "status": "abandoned",
+    "method": null,
+    "failureReason": "checkout_abandoned",
+    "attemptCount": 0
+  },
+  {
+    "paymentId": "pay_005",
+    "customerId": "cust_005",
+    "customerType": "returning",
+    "amount": 5000,
+    "status": "failed",
+    "method": "card",
+    "failureReason": "insufficient_funds",
+    "attemptCount": 3
+  },
+  {
+    "paymentId": "pay_006",
+    "customerId": "cust_006",
+    "customerType": "returning",
+    "amount": 6200,
+    "status": "failed",
+    "method": "card",
+    "failureReason": "bank_restriction",
+    "attemptCount": 1
+  },
+  {
+    "paymentId": "pay_007",
+    "customerId": "cust_007",
+    "customerType": "returning",
+    "amount": 7800,
+    "status": "abandoned",
+    "method": null,
+    "failureReason": "checkout_abandoned",
+    "attemptCount": 0
+  },
+  {
+    "paymentId": "pay_008",
+    "customerId": "cust_008",
+    "customerType": "new",
+    "amount": 1200,
+    "status": "failed",
+    "method": "upi",
+    "failureReason": "timeout",
+    "attemptCount": 2
+  },
+  {
+    "paymentId": "pay_009",
+    "customerId": "cust_009",
+    "customerType": "returning",
+    "amount": 9500,
+    "status": "failed",
+    "method": "upi",
+    "failureReason": "timeout",
+    "attemptCount": 3
+  },
+  {
+    "paymentId": "pay_010",
+    "customerId": "cust_010",
+    "customerType": "new",
+    "amount": 2900,
+    "status": "success",
+    "method": "card",
+    "failureReason": null,
+    "attemptCount": 1
+  },
+
+  {
+    "paymentId": "pay_011",
+    "customerId": "cust_011",
+    "customerType": "new",
+    "amount": 8400,
+    "status": "failed",
+    "method": "card",
+    "failureReason": "issuer_declined",
+    "attemptCount": 1
+  },
+  {
+    "paymentId": "pay_012",
+    "customerId": "cust_012",
+    "customerType": "returning",
+    "amount": 4600,
+    "status": "failed",
+    "method": "card",
+    "failureReason": "bank_restriction",
+    "attemptCount": 1
+  },
+  {
+    "paymentId": "pay_013",
+    "customerId": "cust_013",
+    "customerType": "returning",
+    "amount": 5100,
+    "status": "failed",
+    "method": "upi",
+    "failureReason": "timeout",
+    "attemptCount": 1
+  },
+  {
+    "paymentId": "pay_014",
+    "customerId": "cust_014",
+    "customerType": "new",
+    "amount": 3300,
+    "status": "failed",
+    "method": "card",
+    "failureReason": "insufficient_funds",
+    "attemptCount": 2
+  },
+  {
+    "paymentId": "pay_015",
+    "customerId": "cust_015",
+    "customerType": "returning",
+    "amount": 6100,
+    "status": "failed",
+    "method": "card",
+    "failureReason": "bank_restriction",
+    "attemptCount": 1
+  },
+  {
+    "paymentId": "pay_016",
+    "customerId": "cust_016",
+    "customerType": "new",
+    "amount": 2200,
+    "status": "abandoned",
+    "method": null,
+    "failureReason": "checkout_abandoned",
+    "attemptCount": 0
+  },
+  {
+    "paymentId": "pay_017",
+    "customerId": "cust_017",
+    "customerType": "returning",
+    "amount": 6800,
+    "status": "failed",
+    "method": "card",
+    "failureReason": "bank_restriction",
+    "attemptCount": 1
+  },
+  {
+    "paymentId": "pay_018",
+    "customerId": "cust_018",
+    "customerType": "returning",
+    "amount": 7400,
+    "status": "success",
+    "method": "upi",
+    "failureReason": null,
+    "attemptCount": 1
+  },
+  {
+    "paymentId": "pay_019",
+    "customerId": "cust_019",
+    "customerType": "new",
+    "amount": 1600,
+    "status": "failed",
+    "method": "upi",
+    "failureReason": "timeout",
+    "attemptCount": 1
+  },
+  {
+    "paymentId": "pay_020",
+    "customerId": "cust_020",
+    "customerType": "returning",
+    "amount": 8900,
+    "status": "failed",
+    "method": "card",
+    "failureReason": "issuer_declined",
+    "attemptCount": 2
+  },
+
+  {
+    "paymentId": "pay_021",
+    "customerId": "cust_021",
+    "customerType": "new",
+    "amount": 2700,
+    "status": "failed",
+    "method": "card",
+    "failureReason": "insufficient_funds",
+    "attemptCount": 1
+  },
+  {
+    "paymentId": "pay_022",
+    "customerId": "cust_022",
+    "customerType": "returning",
+    "amount": 4300,
+    "status": "abandoned",
+    "method": null,
+    "failureReason": "checkout_abandoned",
+    "attemptCount": 0
+  },
+  {
+    "paymentId": "pay_023",
+    "customerId": "cust_023",
+    "customerType": "new",
+    "amount": 1500,
+    "status": "success",
+    "method": "upi",
+    "failureReason": null,
+    "attemptCount": 1
+  },
+  {
+    "paymentId": "pay_024",
+    "customerId": "cust_024",
+    "customerType": "returning",
+    "amount": 11200,
+    "status": "failed",
+    "method": "card",
+    "failureReason": "bank_restriction",
+    "attemptCount": 1
+  },
+  {
+    "paymentId": "pay_025",
+    "customerId": "cust_025",
+    "customerType": "new",
+    "amount": 3600,
+    "status": "failed",
+    "method": "upi",
+    "failureReason": "timeout",
+    "attemptCount": 2
+  },
+  {
+    "paymentId": "pay_026",
+    "customerId": "cust_026",
+    "customerType": "returning",
+    "amount": 5700,
+    "status": "failed",
+    "method": "card",
+    "failureReason": "insufficient_funds",
+    "attemptCount": 2
+  },
+  {
+    "paymentId": "pay_027",
+    "customerId": "cust_027",
+    "customerType": "new",
+    "amount": 2100,
+    "status": "abandoned",
+    "method": null,
+    "failureReason": "checkout_abandoned",
+    "attemptCount": 0
+  },
+  {
+    "paymentId": "pay_028",
+    "customerId": "cust_028",
+    "customerType": "returning",
+    "amount": 9900,
+    "status": "failed",
+    "method": "card",
+    "failureReason": "issuer_declined",
+    "attemptCount": 1
+  },
+  {
+    "paymentId": "pay_029",
+    "customerId": "cust_029",
+    "customerType": "returning",
+    "amount": 4100,
+    "status": "success",
+    "method": "card",
+    "failureReason": null,
+    "attemptCount": 1
+  },
+  {
+    "paymentId": "pay_030",
+    "customerId": "cust_030",
+    "customerType": "new",
+    "amount": 3000,
+    "status": "failed",
+    "method": "upi",
+    "failureReason": "timeout",
+    "attemptCount": 3
+  },
+
+  {
+    "paymentId": "pay_031",
+    "customerId": "cust_031",
+    "customerType": "returning",
+    "amount": 12500,
+    "status": "failed",
+    "method": "card",
+    "failureReason": "bank_restriction",
+    "attemptCount": 2
+  },
+  {
+    "paymentId": "pay_032",
+    "customerId": "cust_032",
+    "customerType": "new",
+    "amount": 1900,
+    "status": "failed",
+    "method": "card",
+    "failureReason": "insufficient_funds",
+    "attemptCount": 1
+  },
+  {
+    "paymentId": "pay_033",
+    "customerId": "cust_033",
+    "customerType": "returning",
+    "amount": 6500,
+    "status": "abandoned",
+    "method": null,
+    "failureReason": "checkout_abandoned",
+    "attemptCount": 0
+  },
+  {
+    "paymentId": "pay_034",
+    "customerId": "cust_034",
+    "customerType": "new",
+    "amount": 4700,
+    "status": "failed",
+    "method": "card",
+    "failureReason": "issuer_declined",
+    "attemptCount": 1
+  },
+  {
+    "paymentId": "pay_035",
+    "customerId": "cust_035",
+    "customerType": "returning",
+    "amount": 2800,
+    "status": "failed",
+    "method": "upi",
+    "failureReason": "timeout",
+    "attemptCount": 1
+  },
+  {
+    "paymentId": "pay_036",
+    "customerId": "cust_036",
+    "customerType": "new",
+    "amount": 5300,
+    "status": "success",
+    "method": "card",
+    "failureReason": null,
+    "attemptCount": 1
+  },
+  {
+    "paymentId": "pay_037",
+    "customerId": "cust_037",
+    "customerType": "returning",
+    "amount": 8700,
+    "status": "failed",
+    "method": "card",
+    "failureReason": "insufficient_funds",
+    "attemptCount": 3
+  },
+  {
+    "paymentId": "pay_038",
+    "customerId": "cust_038",
+    "customerType": "new",
+    "amount": 2400,
+    "status": "abandoned",
+    "method": null,
+    "failureReason": "checkout_abandoned",
+    "attemptCount": 0
+  },
+  {
+    "paymentId": "pay_039",
+    "customerId": "cust_039",
+    "customerType": "returning",
+    "amount": 10400,
+    "status": "failed",
+    "method": "card",
+    "failureReason": "bank_restriction",
+    "attemptCount": 1
+  },
+  {
+    "paymentId": "pay_040",
+    "customerId": "cust_040",
+    "customerType": "new",
+    "amount": 3100,
+    "status": "failed",
+    "method": "upi",
+    "failureReason": "timeout",
+    "attemptCount": 2
+  },
+
+  {
+    "paymentId": "pay_041",
+    "customerId": "cust_041",
+    "customerType": "returning",
+    "amount": 5600,
+    "status": "failed",
+    "method": "card",
+    "failureReason": "issuer_declined",
+    "attemptCount": 2
+  },
+  {
+    "paymentId": "pay_042",
+    "customerId": "cust_042",
+    "customerType": "new",
+    "amount": 1700,
+    "status": "failed",
+    "method": "card",
+    "failureReason": "insufficient_funds",
+    "attemptCount": 1
+  },
+  {
+    "paymentId": "pay_043",
+    "customerId": "cust_043",
+    "customerType": "returning",
+    "amount": 7200,
+    "status": "abandoned",
+    "method": null,
+    "failureReason": "checkout_abandoned",
+    "attemptCount": 0
+  },
+  {
+    "paymentId": "pay_044",
+    "customerId": "cust_044",
+    "customerType": "new",
+    "amount": 1300,
+    "status": "success",
+    "method": "upi",
+    "failureReason": null,
+    "attemptCount": 1
+  },
+  {
+    "paymentId": "pay_045",
+    "customerId": "cust_045",
+    "customerType": "returning",
+    "amount": 13800,
+    "status": "failed",
+    "method": "card",
+    "failureReason": "bank_restriction",
+    "attemptCount": 2
+  },
+  {
+    "paymentId": "pay_046",
+    "customerId": "cust_046",
+    "customerType": "new",
+    "amount": 2600,
+    "status": "failed",
+    "method": "upi",
+    "failureReason": "timeout",
+    "attemptCount": 1
+  },
+  {
+    "paymentId": "pay_047",
+    "customerId": "cust_047",
+    "customerType": "returning",
+    "amount": 4800,
+    "status": "failed",
+    "method": "card",
+    "failureReason": "insufficient_funds",
+    "attemptCount": 2
+  },
+  {
+    "paymentId": "pay_048",
+    "customerId": "cust_048",
+    "customerType": "new",
+    "amount": 3700,
+    "status": "abandoned",
+    "method": null,
+    "failureReason": "checkout_abandoned",
+    "attemptCount": 0
+  },
+  {
+    "paymentId": "pay_049",
+    "customerId": "cust_049",
+    "customerType": "returning",
+    "amount": 11800,
+    "status": "failed",
+    "method": "card",
+    "failureReason": "processor_response_unclear",
+    "attemptCount": 1
+  },
+  {
+    "paymentId": "pay_050",
+    "customerId": "cust_050",
+    "customerType": "returning",
+    "amount": 6400,
+    "status": "success",
+    "method": "card",
+    "failureReason": null,
+    "attemptCount": 1
+  }
+]
