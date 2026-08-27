@@ -410,6 +410,32 @@ This provides traceability across the autonomous recovery lifecycle.
 
 ---
 
+
+---
+
+## Screenshots
+
+### Dashboard
+
+![RecoverAI Dashboard](docs/screenshots/dashboard.png)
+
+### Recovery Cases
+
+![Recovery Cases](docs/screenshots/recovery-cases.png)
+
+### AI Decision and Razorpay-Confirmed Recovery
+
+![AI Decision](docs/screenshots/ai-decision.png)
+
+### Analytics
+
+![Recovery Analytics](docs/screenshots/analytics.png)
+
+### Audit Trail
+
+![Audit Trail](docs/screenshots/audit-trail.png)
+
+
 ## Tech Stack
 
 ### Frontend
