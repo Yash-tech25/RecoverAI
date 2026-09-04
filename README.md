@@ -548,6 +548,7 @@ GEMINI_API_KEY=your_gemini_api_key
 RAZORPAY_KEY_ID=your_razorpay_test_key_id
 RAZORPAY_KEY_SECRET=your_razorpay_test_key_secret
 RAZORPAY_WEBHOOK_SECRET=your_razorpay_webhook_secret
+FRONTEND_URL=https://your-frontend-domain.vercel.app
 
 NODE_ENV=development
 PORT=5000
