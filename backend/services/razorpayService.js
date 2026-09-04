@@ -1,5 +1,55 @@
 async function createRecoveryPaymentLink(payment) {
 
+
+    // ====================================================
+  // VALIDATE PAYMENT AMOUNT
+  // ====================================================
+
+  const numericAmount =
+    Number(
+      payment?.amount
+    );
+
+
+  if (
+    !Number.isFinite(
+      numericAmount
+    ) ||
+    numericAmount <= 0
+  ) {
+
+    throw new Error(
+      "A valid positive payment amount is required."
+    );
+  }
+
+
+  /*
+    Razorpay expects INR amounts in paise.
+
+    Math.round protects the API request from
+    JavaScript floating-point representation issues.
+  */
+
+  const amountInPaise =
+    Math.round(
+      numericAmount * 100
+    );
+
+
+  if (
+    !Number.isSafeInteger(
+      amountInPaise
+    ) ||
+    amountInPaise <= 0
+  ) {
+
+    throw new Error(
+      "Payment amount could not be converted safely to paise."
+    );
+  }
+
+
   const keyId =
     process.env.RAZORPAY_KEY_ID;
 
@@ -36,7 +86,7 @@ async function createRecoveryPaymentLink(payment) {
       body: JSON.stringify({
 
         amount:
-          payment.amount * 100,
+  amountInPaise,
 
         currency:
           "INR",
@@ -45,7 +95,7 @@ async function createRecoveryPaymentLink(payment) {
           false,
 
         reference_id:
-          `recoverai_${payment.paymentId}_${Date.now()}`,
+  `rai_${payment.paymentId.slice(-15)}_${Date.now().toString().slice(-8)}`,
 
         description:
           `RecoverAI recovery payment for ${payment.paymentId}`,

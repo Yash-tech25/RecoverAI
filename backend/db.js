@@ -4,8 +4,6 @@ const {
   MongoClient,
 } = require("mongodb");
 
-require("dotenv").config();
-
 
 // ======================================================
 // DNS CONFIGURATION
@@ -32,9 +30,21 @@ dns.setServers([
 // MONGODB CLIENT
 // ======================================================
 
+const mongoUri =
+  process.env.MONGO_URI;
+
+
+if (!mongoUri) {
+
+  throw new Error(
+    "MONGO_URI is not configured."
+  );
+}
+
+
 const client =
   new MongoClient(
-    process.env.MONGO_URI
+    mongoUri
   );
 
 
@@ -56,6 +66,19 @@ async function connectDB() {
     );
 
 
+  /*
+    client.connect() can complete before the first real database
+    operation exposes a network / replica-set problem.
+
+    Ping the selected database before reporting a successful
+    connection so startup logs reflect actual database usability.
+  */
+
+  await db.command({
+    ping: 1
+  });
+
+
   console.log(
     "MongoDB connected successfully"
   );
@@ -71,7 +94,27 @@ async function connectDB() {
 
 function getDB() {
 
+  if (!db) {
+
+    throw new Error(
+      "MongoDB has not been initialized."
+    );
+  }
+
+
   return db;
+}
+
+
+// ======================================================
+// CLOSE DATABASE
+// ======================================================
+
+async function closeDB() {
+
+  await client.close();
+
+  db = undefined;
 }
 
 
@@ -84,4 +127,6 @@ module.exports = {
   connectDB,
 
   getDB,
+
+  closeDB,
 };

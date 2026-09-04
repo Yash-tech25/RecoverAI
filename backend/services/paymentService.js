@@ -34,6 +34,9 @@ const ALLOWED_FAILURE_REASONS = [
   "bank_restriction",
   "issuer_declined",
   "processor_response_unclear",
+  "customer_payment_timing_unclear",
+  "payment_method_issue_unclear",
+  "payment_method_temporarily_unavailable",
   null
 ];
 
@@ -48,8 +51,7 @@ function validatePayment(
 
   if (
     !payment ||
-    typeof payment !==
-      "object"
+    typeof payment !== "object"
   ) {
 
     throw new Error(
@@ -59,11 +61,8 @@ function validatePayment(
 
 
   if (
-    typeof payment.paymentId !==
-      "string"
-    ||
-    payment.paymentId.trim() ===
-      ""
+    typeof payment.paymentId !== "string" ||
+    payment.paymentId.trim() === ""
   ) {
 
     throw new Error(
@@ -73,11 +72,8 @@ function validatePayment(
 
 
   if (
-    typeof payment.customerId !==
-      "string"
-    ||
-    payment.customerId.trim() ===
-      ""
+    typeof payment.customerId !== "string" ||
+    payment.customerId.trim() === ""
   ) {
 
     throw new Error(
@@ -99,13 +95,10 @@ function validatePayment(
 
 
   if (
-    typeof payment.amount !==
-      "number"
-    ||
+    typeof payment.amount !== "number" ||
     !Number.isFinite(
       payment.amount
-    )
-    ||
+    ) ||
     payment.amount <= 0
   ) {
 
@@ -154,10 +147,8 @@ function validatePayment(
   if (
     !Number.isInteger(
       payment.attemptCount
-    )
-    ||
-    payment.attemptCount < 0
-    ||
+    ) ||
+    payment.attemptCount < 0 ||
     payment.attemptCount > 20
   ) {
 
@@ -177,9 +168,7 @@ function validatePayment(
   */
 
   if (
-    payment.status ===
-      "success"
-    &&
+    payment.status === "success" &&
     payment.failureReason
   ) {
 
@@ -190,9 +179,7 @@ function validatePayment(
 
 
   if (
-    payment.status !==
-      "success"
-    &&
+    payment.status !== "success" &&
     !payment.failureReason
   ) {
 
@@ -212,12 +199,8 @@ function validatePayment(
   */
 
   if (
-    payment.failureReason !==
-      "checkout_abandoned"
-    &&
-    payment.status !==
-      "success"
-    &&
+    payment.failureReason !== "checkout_abandoned" &&
+    payment.status !== "success" &&
     !payment.method
   ) {
 
@@ -283,53 +266,67 @@ async function seedPayments(
     );
 
 
-  let insertedCount =
-    0;
-
-
-  let existingCount =
-    0;
-
-
-  for (
-    const payment of
-    payments
+  if (
+    !Array.isArray(payments) ||
+    payments.length === 0
   ) {
 
-    /*
-      The bundled synthetic dataset is treated
-      as trusted application data.
+    console.log(
+      "Payment seed sync skipped: no seed payments"
+    );
 
-      We preserve existing records so previous
-      Razorpay demo cases and manually created
-      payments are not overwritten.
-    */
-
-    const existingPayment =
-      await collection.findOne({
-
-        paymentId:
-          payment.paymentId
-      });
+    return;
+  }
 
 
-    if (
-      existingPayment
-    ) {
+  /*
+    Preserve existing records exactly as before,
+    but perform the seed sync in one bulk operation.
 
-      existingCount++;
+    $setOnInsert means existing demo / Razorpay
+    records are NEVER overwritten.
+  */
 
-      continue;
-    }
+  const operations =
+    payments.map(
+      (payment) => ({
 
+        updateOne: {
 
-    await collection.insertOne(
-      payment
+          filter: {
+            paymentId:
+              payment.paymentId
+          },
+
+          update: {
+            $setOnInsert:
+              payment
+          },
+
+          upsert:
+            true
+        }
+      })
     );
 
 
-    insertedCount++;
-  }
+  const result =
+    await collection.bulkWrite(
+      operations,
+      {
+        ordered:
+          false
+      }
+    );
+
+
+  const insertedCount =
+    result.upsertedCount || 0;
+
+
+  const existingCount =
+    payments.length -
+    insertedCount;
 
 
   console.log(
@@ -354,8 +351,7 @@ async function getAllPayments() {
     )
     .find({})
     .sort({
-      paymentId:
-        1
+      paymentId: 1
     })
     .toArray();
 }
@@ -414,8 +410,7 @@ async function createPayment(
       .findOne({
 
         paymentId:
-          normalizedPayment
-            .paymentId
+          normalizedPayment.paymentId
       });
 
 

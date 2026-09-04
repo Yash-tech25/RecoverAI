@@ -1,5 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import {
+  Fragment,
+  useEffect,
+  useMemo,
+  useState
+} from "react";
 import axios from "axios";
+
 
 axios.defaults.baseURL =
   import.meta.env.VITE_API_URL || "";
@@ -18,6 +24,14 @@ import {
   TrendingUp,
   WalletCards,
   Zap,
+  Moon,
+  Sun,
+  ChevronDown,
+  ChevronUp,
+  MessageSquare,
+  UserRound,
+  CalendarDays,
+  BarChart3,
 } from "lucide-react";
 
 import {
@@ -35,7 +49,80 @@ import "./App.css";
 function App() {
 
   const [activePage, setActivePage] =
-    useState("dashboard");
+  useState(() => {
+
+    const validPages = [
+
+      "dashboard",
+
+      "cases",
+
+      "promises",
+
+      "analytics",
+
+      "audit"
+
+    ];
+
+
+    const hashPage =
+      window.location.hash
+        .replace(/^#\/?/, "")
+        .trim();
+
+
+    if (
+      validPages.includes(
+        hashPage
+      )
+    ) {
+
+      return hashPage;
+    }
+
+
+    const savedPage =
+      localStorage.getItem(
+        "recoverai-active-page"
+      );
+
+
+    return validPages.includes(
+      savedPage
+    )
+
+      ? savedPage
+
+      : "dashboard";
+  });
+  
+  const [theme, setTheme] =
+  useState(() => {
+
+    const savedTheme =
+      localStorage.getItem(
+        "recoverai-theme"
+      );
+
+
+    if (
+      savedTheme === "dark" ||
+      savedTheme === "light"
+    ) {
+      return savedTheme;
+    }
+
+
+    return window
+      .matchMedia(
+        "(prefers-color-scheme: dark)"
+      )
+      .matches
+
+      ? "dark"
+      : "light";
+  });
 
   const [summary, setSummary] =
     useState(null);
@@ -48,6 +135,9 @@ function App() {
 
   const [auditLogs, setAuditLogs] =
     useState([]);
+  
+  const [promises, setPromises] =
+  useState([]);
 
   const [batchEvaluation, setBatchEvaluation] =
     useState(null);
@@ -63,75 +153,273 @@ function App() {
 
 
   const loadDashboard = async (
-    showLoading = true
-  ) => {
+  showLoading = true
+) => {
 
-    try {
+  try {
 
-      if (showLoading) {
-        setLoading(true);
-      }
+    if (showLoading) {
 
-      setError("");
+      setLoading(true);
+    }
 
 
-      const [
-        summaryResponse,
-        statesResponse,
-        casesResponse,
-        auditResponse,
-      ] = await Promise.all([
+    setError("");
+
+
+    /*
+      Each dashboard resource is independent.
+
+      Promise.allSettled allows successful resources to
+      refresh even if one API temporarily fails.
+
+      This is especially important after a Razorpay
+      webhook because recoveryStates may already contain
+      RECOVERED while another dashboard endpoint is
+      temporarily unavailable.
+    */
+
+    /*
+      Add a unique refresh token to every dashboard read.
+
+      This prevents the browser, CDN, or deployment layer from
+      reusing an older GET response after a Razorpay webhook or
+      manual refresh. The backend can safely ignore this query
+      parameter.
+    */
+
+    const refreshToken =
+      Date.now();
+
+
+    const requestConfig = {
+
+  params: {
+
+    _refresh:
+      refreshToken
+  }
+};
+
+
+    const results =
+      await Promise.allSettled([
 
         axios.get(
-          "/api/recovery-summary"
+          "/api/recovery-summary",
+          requestConfig
         ),
 
         axios.get(
-          "/api/recovery-states"
+          "/api/recovery-states",
+          requestConfig
         ),
 
         axios.get(
-          "/api/recovery-cases"
+          "/api/recovery-cases",
+          requestConfig
         ),
 
         axios.get(
-          "/api/audit-logs"
+          "/api/audit-logs",
+          requestConfig
         ),
+
+        axios.get(
+          "/api/promises",
+          requestConfig
+        )
 
       ]);
 
 
+    const [
+      summaryResult,
+      statesResult,
+      casesResult,
+      auditResult,
+      promisesResult
+    ] = results;
+
+
+    let successfulRequests =
+      0;
+
+
+    // ==================================================
+    // SUMMARY
+    // ==================================================
+
+    if (
+      summaryResult.status ===
+      "fulfilled"
+    ) {
+
       setSummary(
-        summaryResponse.data
+        summaryResult.value.data
       );
+
+      successfulRequests++;
+    }
+
+    else {
+
+      console.error(
+        "Recovery summary refresh failed:",
+        summaryResult.reason
+      );
+    }
+
+
+    // ==================================================
+    // RECOVERY STATES
+    // ==================================================
+
+    if (
+      statesResult.status ===
+      "fulfilled"
+    ) {
 
       setStates(
-        statesResponse.data
+        statesResult.value.data
       );
+
+      successfulRequests++;
+    }
+
+    else {
+
+      console.error(
+        "Recovery states refresh failed:",
+        statesResult.reason
+      );
+    }
+
+
+    // ==================================================
+    // RECOVERY CASES
+    // ==================================================
+
+    if (
+      casesResult.status ===
+      "fulfilled"
+    ) {
 
       setCases(
-        casesResponse.data
+        casesResult.value.data
       );
+
+      successfulRequests++;
+    }
+
+    else {
+
+      console.error(
+        "Recovery cases refresh failed:",
+        casesResult.reason
+      );
+    }
+
+
+    // ==================================================
+    // AUDIT LOGS
+    // ==================================================
+
+    if (
+      auditResult.status ===
+      "fulfilled"
+    ) {
 
       setAuditLogs(
-        auditResponse.data
+        auditResult.value.data
       );
 
-    } catch (err) {
+      successfulRequests++;
+    }
 
-      console.error(err);
+    else {
+
+      console.error(
+        "Audit log refresh failed:",
+        auditResult.reason
+      );
+    }
+
+
+    // ==================================================
+    // PROMISES
+    // ==================================================
+
+    if (
+      promisesResult.status ===
+      "fulfilled"
+    ) {
+
+      setPromises(
+        promisesResult
+          .value
+          .data
+          ?.promises || []
+      );
+
+      successfulRequests++;
+    }
+
+    else {
+
+      console.error(
+        "Promise refresh failed:",
+        promisesResult.reason
+      );
+    }
+
+
+    /*
+      Only show a blocking dashboard error when this is
+      the initial load AND every request failed.
+
+      During background polling, keep the last successful
+      data visible.
+    */
+
+    if (
+      showLoading &&
+      successfulRequests === 0
+    ) {
 
       setError(
         "Could not load RecoverAI data."
       );
-
-    } finally {
-
-      if (showLoading) {
-        setLoading(false);
-      }
     }
-  };
+
+  } catch (err) {
+
+    /*
+      This should now be rare because individual request
+      failures are handled through Promise.allSettled.
+    */
+
+    console.error(
+      "Dashboard refresh failed:",
+      err
+    );
+
+
+    if (showLoading) {
+
+      setError(
+        "Could not load RecoverAI data."
+      );
+    }
+
+  } finally {
+
+    if (showLoading) {
+
+      setLoading(false);
+    }
+  }
+};
 
 
   // ====================================================
@@ -166,6 +454,109 @@ function App() {
         );
       }
     };
+
+
+
+    useEffect(() => {
+
+  document.documentElement
+    .setAttribute(
+      "data-theme",
+      theme
+    );
+
+
+  localStorage.setItem(
+    "recoverai-theme",
+    theme
+  );
+
+}, [theme]);
+
+
+
+// ====================================================
+// PRESERVE CURRENT PAGE
+// ====================================================
+
+useEffect(() => {
+
+  localStorage.setItem(
+    "recoverai-active-page",
+    activePage
+  );
+
+
+  const expectedHash =
+    `#/${activePage}`;
+
+
+  if (
+    window.location.hash !==
+    expectedHash
+  ) {
+
+    window.history.replaceState(
+      null,
+      "",
+      expectedHash
+    );
+  }
+
+}, [activePage]);
+
+
+// ====================================================
+// URL-ADDRESSABLE APP SECTIONS
+// ====================================================
+
+useEffect(() => {
+
+  const validPages = new Set([
+    "dashboard",
+    "cases",
+    "promises",
+    "analytics",
+    "audit"
+  ]);
+
+
+  const syncPageFromHash = () => {
+
+    const hashPage =
+      window.location.hash
+        .replace(/^#\/?/, "")
+        .trim();
+
+
+    if (
+      validPages.has(
+        hashPage
+      )
+    ) {
+
+      setActivePage(
+        hashPage
+      );
+    }
+  };
+
+
+  window.addEventListener(
+    "hashchange",
+    syncPageFromHash
+  );
+
+
+  return () => {
+
+    window.removeEventListener(
+      "hashchange",
+      syncPageFromHash
+    );
+  };
+
+}, []);
 
 
   // ====================================================
@@ -270,13 +661,16 @@ function App() {
             razorpayPaymentId:
               state?.razorpayPaymentId || null,
 
-            processedAt:
-              state?.processedAt || null,
+           processedAt:
+  state?.processedAt || null,
 
-            recoveredAt:
-              state?.recoveredAt || null,
+recoveredAt:
+  state?.recoveredAt || null,
 
-            decisionExplanation:
+routingDecision:
+  state?.routingDecision || null,
+
+decisionExplanation:
               state?.explanation ||
 
               (
@@ -296,6 +690,35 @@ function App() {
       );
 
   }, [cases, stateMap]);
+
+
+  // ====================================================
+  // MANUAL FULL REFRESH
+  // ====================================================
+
+  const handleManualRefresh = () => {
+
+    /*
+      The top-bar Refresh button is an explicit operator action.
+
+      Persist the current section first, then reload the SPA so every
+      dashboard resource is fetched again from the backend. This is
+      intentionally independent of background polling, so the manual
+      Refresh control remains reliable even if a browser suspends a
+      timer or an individual in-memory request gets stuck.
+
+      activePage is already restored from localStorage when the app
+      mounts, so the operator stays on the same main section.
+    */
+
+    localStorage.setItem(
+      "recoverai-active-page",
+      activePage
+    );
+
+
+    window.location.reload();
+  };
 
 
   // ====================================================
@@ -336,6 +759,7 @@ function App() {
         </p>
 
         <button
+        type="button"
           onClick={() =>
             loadDashboard()
           }
@@ -359,28 +783,32 @@ function App() {
 
       <Sidebar
         activePage={activePage}
-        setActivePage={setActivePage}
       />
 
 
       <main className="main">
 
-        <Topbar
-          activePage={activePage}
+       <Topbar
+  activePage={activePage}
 
-          loadDashboard={() =>
-            loadDashboard()
-          }
-        />
+  onRefresh={
+    handleManualRefresh
+  }
+
+  theme={theme}
+
+  setTheme={setTheme}
+/>
 
 
         {
           activePage === "dashboard" &&
           (
-            <DashboardPage
-              summary={summary}
-              states={states}
-            />
+           <DashboardPage
+  summary={summary}
+  states={states}
+  theme={theme}
+/>
           )
         }
 
@@ -400,26 +828,37 @@ function App() {
             />
           )
         }
-
+        
+      {
+         activePage === "promises" &&
+       (
+        <PromiseTrackerPage
+  promises={promises}
+  recoveryCases={recoveryCases}
+  refreshData={() =>
+    loadDashboard(false)
+  }
+/>
+       )
+      }
 
         {
           activePage === "analytics" &&
           (
-            <AnalyticsPage
-              summary={summary}
+           <AnalyticsPage
+  summary={summary}
 
-              batchEvaluation={
-                batchEvaluation
-              }
+  batchEvaluation={
+    batchEvaluation
+  }
 
-              batchError={
-                batchError
-              }
+  batchError={
+    batchError
+  }
 
-              refreshBatch={
-                loadBatchEvaluation
-              }
-            />
+
+  theme={theme}
+/>
           )
         }
 
@@ -447,8 +886,7 @@ function App() {
 // ======================================================
 
 function Sidebar({
-  activePage,
-  setActivePage
+  activePage
 }) {
 
   const menuItems = [
@@ -464,6 +902,12 @@ function Sidebar({
       label: "Recovery Cases",
       icon: <WalletCards size={18} />
     },
+
+    {
+  id: "promises",
+  label: "Promise Tracker",
+  icon: <Clock3 size={18} />
+},
 
     {
       id: "analytics",
@@ -493,9 +937,12 @@ function Sidebar({
 
         <div>
 
-          <h2>
-            RecoverAI
-          </h2>
+          <div className="brand-title-row">
+            <h2>
+              RecoverAI
+            </h2>
+
+          </div>
 
           <span>
             Revenue Recovery Agent
@@ -512,9 +959,10 @@ function Sidebar({
           menuItems.map(
             (item) => (
 
-              <button
-
+              <a
                 key={item.id}
+
+                href={`#/${item.id}`}
 
                 className={
                   `nav-item ${
@@ -524,18 +972,19 @@ function Sidebar({
                   }`
                 }
 
-                onClick={() =>
-                  setActivePage(
-                    item.id
-                  )
+                aria-current={
+                  activePage === item.id
+                    ? "page"
+                    : undefined
                 }
+
               >
 
                 {item.icon}
 
                 {item.label}
 
-              </button>
+              </a>
 
             )
           )
@@ -552,7 +1001,7 @@ function Sidebar({
         <div>
 
           <strong>
-            Agent Online
+            Test Environment
           </strong>
 
           <p>
@@ -574,7 +1023,9 @@ function Sidebar({
 
 function Topbar({
   activePage,
-  loadDashboard
+  onRefresh,
+  theme,
+  setTheme
 }) {
 
   const pageInfo = {
@@ -587,7 +1038,7 @@ function Topbar({
         "Recovery Dashboard",
 
       subtitle:
-        "Monitor revenue at risk, AI decisions and recovery outcomes."
+        "See what’s at risk, what RecoverAI is doing, and what Razorpay has confirmed."
     },
 
     cases: {
@@ -598,8 +1049,19 @@ function Topbar({
         "Recovery Cases",
 
       subtitle:
-        "Inspect payment failures, AI recommendations and recovery states."
+        "Review failed payments, understand each routing decision, and act on the cases that need attention."
     },
+
+    promises: {
+  eyebrow:
+    "CUSTOMER COMMITMENTS",
+
+  title:
+    "Promise-to-Pay Tracker",
+
+  subtitle:
+    "Follow every customer commitment from promise to payment, escalation, or re-engagement."
+},
 
     analytics: {
       eyebrow:
@@ -609,7 +1071,7 @@ function Topbar({
         "Recovery Analytics",
 
       subtitle:
-        "Measure recovery strategies and business impact."
+        "See which recovery strategies are working, where guardrails intervene, and what the benchmark projects."
     },
 
     audit: {
@@ -620,7 +1082,7 @@ function Topbar({
         "Audit Trail",
 
       subtitle:
-        "Review every recovery decision, execution and outcome."
+        "Trace every decision RecoverAI made, why it made it, and what happened next."
     }
 
   };
@@ -651,9 +1113,60 @@ function Topbar({
       </div>
 
 
+      <div className="theme-toggle">
+
+  <button
+    type="button"
+    className={
+      `theme-option ${
+        theme === "dark"
+          ? "active"
+          : ""
+      }`
+    }
+    onClick={() =>
+      setTheme("dark")
+    }
+    aria-pressed={
+      theme === "dark"
+    }
+  >
+    <Moon size={16} />
+
+    Dark
+  </button>
+
+
+  <button
+    type="button"
+    className={
+      `theme-option ${
+        theme === "light"
+          ? "active"
+          : ""
+      }`
+    }
+    onClick={() =>
+      setTheme("light")
+    }
+    aria-pressed={
+      theme === "light"
+    }
+  >
+    <Sun size={16} />
+
+    Light
+  </button>
+
+</div>
+
+
       <button
+        type="button"
         className="refresh-button"
-        onClick={loadDashboard}
+        onClick={
+          onRefresh
+        }
       >
 
         <RefreshCcw size={17} />
@@ -673,23 +1186,133 @@ function Topbar({
 
 function DashboardPage({
   summary,
-  states
+  states,
+  theme
 }) {
 
-  const strategyData =
-    Object.entries(
-      summary?.strategyPerformance || {}
-    ).map(
-      ([action, data]) => ({
+  const strategyPerformance =
+    summary?.strategyPerformance || {};
 
-        action:
-          shortActionName(action),
 
-        successRate:
-          data.successRate,
+  const recoverySources =
+    summary?.recoverySources || {
 
-      })
+      razorpayConfirmed: {
+        cases: 0,
+        revenue: 0
+      },
+
+      simulated: {
+        cases: 0,
+        revenue: 0
+      },
+
+      razorpayPending: {
+        cases: 0,
+        revenue: 0
+      }
+    };
+
+
+  const confirmedRecoveryRate =
+    summary?.recoveryCases > 0
+
+      ? (
+          (
+            Number(
+              recoverySources
+                .razorpayConfirmed
+                .cases || 0
+            ) /
+            Number(
+              summary.recoveryCases
+            )
+          ) * 100
+        ).toFixed(2)
+
+      : "0.00";
+
+
+  const dashboardStrategyOrder = [
+
+    "RETRY",
+
+    "CREATE_PROMISE_TO_PAY",
+
+    "START_CONVERSATIONAL_RECOVERY",
+
+    "SCHEDULE_CALLBACK",
+
+    "SEND_ALTERNATIVE_PAYMENT_METHOD",
+
+    "OFFER_LOYALTY_INCENTIVE"
+  ];
+
+
+  const remainingStrategyActions =
+    Object.keys(
+      strategyPerformance
+    ).filter(
+      (action) =>
+        !dashboardStrategyOrder.includes(
+          action
+        )
     );
+
+
+  const strategyData = [
+    ...dashboardStrategyOrder,
+    ...remainingStrategyActions
+  ].map(
+    (action) => ({
+
+      action:
+        shortActionName(action),
+
+      successRate:
+        Number(
+          strategyPerformance[
+            action
+          ]?.successRate || 0
+        )
+    })
+  );
+
+
+  const ruleRoutedCases =
+    states.filter(
+      (state) =>
+        state.routingDecision?.source ===
+        "RULE"
+    ).length;
+
+
+  const aiRoutedCases =
+    states.filter(
+      (state) =>
+        state.routingDecision?.source ===
+        "AI"
+    ).length;
+
+
+  const humanReviewCases =
+    states.filter(
+      (state) =>
+        state.outcome ===
+        "HUMAN_REVIEW"
+    ).length;
+
+
+  const stoppedCases =
+    states.filter(
+      (state) =>
+        state.recoveryAction ===
+          "STOP_RECOVERY" ||
+        state.outcome ===
+          "STOP_RECOVERY" ||
+        state.outcome ===
+          "STOPPED"
+    ).length;
 
 
   const recentStates = [
@@ -737,16 +1360,18 @@ function DashboardPage({
             <TrendingUp />
           }
 
-          label="Revenue Recovered"
+          label="Razorpay Confirmed"
 
           value={
             formatMoney(
-              summary.recoveredRevenue
+              recoverySources
+                .razorpayConfirmed
+                .revenue
             )
           }
 
           detail={
-            `${summary.recoveredCases} recovered cases`
+            `${recoverySources.razorpayConfirmed.cases} confirmed Test Mode recoveries`
           }
         />
 
@@ -757,13 +1382,13 @@ function DashboardPage({
             <Activity />
           }
 
-          label="Recovery Rate"
+          label="Confirmed Recovery Rate"
 
           value={
-            `${summary.recoveryRate}%`
+            `${confirmedRecoveryRate}%`
           }
 
-          detail="Across recovery cases"
+          detail="Razorpay-confirmed cases across recovery cases"
         />
 
 
@@ -773,15 +1398,19 @@ function DashboardPage({
             <Clock3 />
           }
 
-          label="Pending Payment"
+          label="Pending Razorpay"
 
           value={
             formatMoney(
-              summary.pendingPaymentAmount
+              recoverySources
+                .razorpayPending
+                .revenue
             )
           }
 
-          detail="Awaiting customer payment"
+          detail={
+            `${recoverySources.razorpayPending.cases} payment links awaiting confirmation`
+          }
         />
 
       </section>
@@ -789,11 +1418,13 @@ function DashboardPage({
 
       <section className="content-grid">
 
-        <StrategyChart
-          strategyData={
-            strategyData
-          }
-        />
+       <StrategyChart
+  strategyData={
+    strategyData
+  }
+
+  theme={theme}
+/>
 
 
         <div className="panel agent-panel">
@@ -803,55 +1434,121 @@ function DashboardPage({
           </div>
 
 
-          <p className="eyebrow">
-            AI AGENT STATUS
-          </p>
+          <div className="agent-heading-row">
+
+            <p className="eyebrow">
+              RECOVERY ENGINE STATUS
+            </p>
+
+            <span className="agent-live-pill">
+              <span />
+              Live
+            </span>
+
+          </div>
 
 
           <h3>
-            Recovery Agent Active
+            Recovery Engine Active
           </h3>
 
 
           <p>
-            Rules handle deterministic
-            failures while Gemini handles
-            uncertain cases. Policy
-            guardrails approve actions
-            before Razorpay execution.
+            Live operational view of how RecoverAI is routing current recovery
+            cases. Clear cases use deterministic rules, uncertain cases can use
+            Gemini, and risky cases are escalated or stopped by guardrails.
           </p>
 
 
-          <div className="agent-stat">
+          <div className="agent-stat-grid">
 
-            <span>
-              Total Payments
-            </span>
+            <div className="agent-stat">
 
-            <strong>
-              {summary.totalPayments}
-            </strong>
+              <span>
+                Total Payment Records
+              </span>
+
+              <strong>
+                {summary.totalPayments}
+              </strong>
+
+            </div>
+
+
+            <div className="agent-stat">
+
+              <span>
+                Rule-Routed States
+              </span>
+
+              <strong>
+                {ruleRoutedCases}
+              </strong>
+
+            </div>
+
+
+            <div className="agent-stat">
+
+              <span>
+                AI-Routed States
+              </span>
+
+              <strong>
+                {aiRoutedCases}
+              </strong>
+
+            </div>
+
+
+            <div className="agent-stat">
+
+              <span>
+                Human Review
+              </span>
+
+              <strong>
+                {humanReviewCases}
+              </strong>
+
+            </div>
+
+
+            <div className="agent-stat">
+
+              <span>
+                Stopped by Guardrails
+              </span>
+
+              <strong>
+                {stoppedCases}
+              </strong>
+
+            </div>
+
+
+            <div className="agent-stat">
+
+              <span>
+                Live Stopped Revenue
+              </span>
+
+              <strong>
+                {
+                  formatMoney(
+                    summary.stoppedAmount
+                  )
+                }
+              </strong>
+
+            </div>
 
           </div>
 
 
-          <div className="agent-stat">
-
-            <span>
-              Stopped Revenue
-            </span>
-
-            <strong>
-
-              {
-                formatMoney(
-                  summary.stoppedAmount
-                )
-              }
-
-            </strong>
-
-          </div>
+          <p className="agent-data-note">
+            Live dashboard data only — synthetic benchmark results remain in Analytics.
+          </p>
 
         </div>
 
@@ -869,15 +1566,15 @@ function DashboardPage({
             </h3>
 
             <p>
-              Latest autonomous recovery
-              activity
+              Latest recorded recovery
+              states
             </p>
 
           </div>
 
 
           <span className="case-count">
-            {states.length} cases
+            {states.length} tracked states
           </span>
 
         </div>
@@ -951,6 +1648,18 @@ function RecoveryCasesPage({
     processingFilter,
     setProcessingFilter
   ] = useState("ALL");
+
+
+  // ====================================================
+  // QUEUE PAGINATION
+  // ====================================================
+
+  const CASES_PER_PAGE = 10;
+
+  const [
+    currentPage,
+    setCurrentPage
+  ] = useState(1);
 
 
   /*
@@ -1076,6 +1785,156 @@ function RecoveryCasesPage({
     ]);
 
 
+  const totalPages =
+    Math.max(
+      1,
+      Math.ceil(
+        filteredCases.length /
+        CASES_PER_PAGE
+      )
+    );
+
+
+  /*
+    Return to page 1 whenever the queue view changes.
+
+    This prevents a filter from leaving the user on
+    a page that no longer exists.
+  */
+
+  useEffect(() => {
+
+    setCurrentPage(1);
+
+  }, [
+    searchTerm,
+    statusFilter,
+    failureFilter,
+    processingFilter
+  ]);
+
+
+  /*
+    Polling can change the number of recovery cases.
+
+    If the current page becomes invalid after a refresh,
+    move to the last available page.
+  */
+
+  useEffect(() => {
+
+    if (currentPage > totalPages) {
+
+      setCurrentPage(totalPages);
+    }
+
+  }, [
+    currentPage,
+    totalPages
+  ]);
+
+
+  const paginatedCases =
+    useMemo(() => {
+
+      const startIndex =
+        (currentPage - 1) *
+        CASES_PER_PAGE;
+
+      return filteredCases.slice(
+        startIndex,
+        startIndex + CASES_PER_PAGE
+      );
+
+    }, [
+      filteredCases,
+      currentPage
+    ]);
+
+
+  const firstVisibleCase =
+    filteredCases.length === 0
+
+      ? 0
+
+      : (
+          (currentPage - 1) *
+          CASES_PER_PAGE
+        ) + 1;
+
+
+  const lastVisibleCase =
+    Math.min(
+      currentPage * CASES_PER_PAGE,
+      filteredCases.length
+    );
+
+
+  const paginationItems =
+    useMemo(() => {
+
+      if (totalPages <= 7) {
+
+        return Array.from(
+          {
+            length: totalPages
+          },
+          (_, index) =>
+            index + 1
+        );
+      }
+
+
+      const items = [1];
+
+      const windowStart =
+        Math.max(
+          2,
+          currentPage - 1
+        );
+
+      const windowEnd =
+        Math.min(
+          totalPages - 1,
+          currentPage + 1
+        );
+
+
+      if (windowStart > 2) {
+
+        items.push("start-ellipsis");
+      }
+
+
+      for (
+        let page = windowStart;
+        page <= windowEnd;
+        page += 1
+      ) {
+
+        items.push(page);
+      }
+
+
+      if (
+        windowEnd <
+        totalPages - 1
+      ) {
+
+        items.push("end-ellipsis");
+      }
+
+
+      items.push(totalPages);
+
+      return items;
+
+    }, [
+      currentPage,
+      totalPages
+    ]);
+
+
   const hasActiveFilters =
     searchTerm.trim() !== ""
 
@@ -1142,6 +2001,7 @@ function RecoveryCasesPage({
 
 
         <button
+        type="button"
           className="create-case-button"
 
           onClick={() =>
@@ -1305,6 +2165,7 @@ function RecoveryCasesPage({
           &&
           (
             <button
+        type="button"
 
               className="clear-filters-button"
 
@@ -1379,7 +2240,7 @@ function RecoveryCasesPage({
                 </th>
 
                 <th>
-                  AI / Rule Action
+                  Recovery Plan / Action
                 </th>
 
                 <th>
@@ -1402,7 +2263,7 @@ function RecoveryCasesPage({
 
                   ?
 
-                  filteredCases.map(
+                  paginatedCases.map(
                     (payment) => (
 
                       <tr
@@ -1461,20 +2322,39 @@ function RecoveryCasesPage({
 
                         <td>
 
-                          {
-                            payment.currentAction ===
-                            "REVIEW"
+                          <div className="recovery-action-cell">
 
-                              ?
-
-                              "AI Analysis Required"
-
-                              :
-
-                              formatAction(
-                                payment.currentAction
+                            {
+                              payment.currentOutcome ===
+                              "NOT_PROCESSED"
+                              &&
+                              (
+                                <span className="action-context-label">
+                                  Recommended
+                                </span>
                               )
-                          }
+                            }
+
+                            <span>
+
+                              {
+                                payment.currentAction ===
+                                "REVIEW"
+
+                                  ?
+
+                                  "Requires AI Analysis"
+
+                                  :
+
+                                  formatAction(
+                                    payment.currentAction
+                                  )
+                              }
+
+                            </span>
+
+                          </div>
 
                         </td>
 
@@ -1493,6 +2373,7 @@ function RecoveryCasesPage({
                         <td>
 
                           <button
+        type="button"
                             className="secondary-button"
 
                             onClick={() =>
@@ -1536,6 +2417,141 @@ function RecoveryCasesPage({
           </table>
 
         </div>
+
+
+        {
+          filteredCases.length > 0
+          &&
+          (
+            <div className="cases-pagination">
+
+              <div className="pagination-summary">
+
+                Showing{" "}
+
+                <strong>
+                  {firstVisibleCase}
+                </strong>
+
+                {" to "}
+
+                <strong>
+                  {lastVisibleCase}
+                </strong>
+
+                {" of "}
+
+                <strong>
+                  {filteredCases.length}
+                </strong>
+
+                {" cases"}
+
+              </div>
+
+
+              <div
+                className="pagination-controls"
+                aria-label="Recovery cases pagination"
+              >
+
+                <button
+                  type="button"
+                  className="pagination-arrow"
+                  aria-label="Previous page"
+                  disabled={
+                    currentPage === 1
+                  }
+                  onClick={() =>
+                    setCurrentPage(
+                      (page) =>
+                        Math.max(
+                          1,
+                          page - 1
+                        )
+                    )
+                  }
+                >
+                  ‹
+                </button>
+
+
+                {
+                  paginationItems.map(
+                    (item) => {
+
+                      if (
+                        typeof item !==
+                        "number"
+                      ) {
+
+                        return (
+                          <span
+                            key={item}
+                            className="pagination-ellipsis"
+                          >
+                            …
+                          </span>
+                        );
+                      }
+
+
+                      return (
+                        <button
+                          key={item}
+                          type="button"
+                          className={
+                            `pagination-page ${
+                              currentPage === item
+                                ? "active"
+                                : ""
+                            }`
+                          }
+                          aria-current={
+                            currentPage === item
+                              ? "page"
+                              : undefined
+                          }
+                          onClick={() =>
+                            setCurrentPage(
+                              item
+                            )
+                          }
+                        >
+                          {item}
+                        </button>
+                      );
+                    }
+                  )
+                }
+
+
+                <button
+                  type="button"
+                  className="pagination-arrow"
+                  aria-label="Next page"
+                  disabled={
+                    currentPage ===
+                    totalPages
+                  }
+                  onClick={() =>
+                    setCurrentPage(
+                      (page) =>
+                        Math.min(
+                          totalPages,
+                          page + 1
+                        )
+                    )
+                  }
+                >
+                  ›
+                </button>
+
+              </div>
+
+            </div>
+          )
+        }
 
       </div>
 
@@ -1661,6 +2677,42 @@ function CreateCaseModal({
 
 
   /*
+    MODAL SCROLL LOCK
+
+    While the create-case workflow is open, the underlying
+    Recovery Cases page must not move. Only the workflow cards
+    are allowed to scroll internally.
+  */
+
+  useEffect(() => {
+
+    const previousBodyOverflow =
+      document.body.style.overflow;
+
+    const previousHtmlOverflow =
+      document.documentElement.style.overflow;
+
+
+    document.body.style.overflow =
+      "hidden";
+
+    document.documentElement.style.overflow =
+      "hidden";
+
+
+    return () => {
+
+      document.body.style.overflow =
+        previousBodyOverflow;
+
+      document.documentElement.style.overflow =
+        previousHtmlOverflow;
+    };
+
+  }, []);
+
+
+  /*
     LIVE VERSION OF THE CREATED CASE.
 
     Polling updates recoveryCases every 5 seconds.
@@ -1705,6 +2757,42 @@ function CreateCaseModal({
     null;
 
 
+  const finalRecoveryAction =
+    liveCreatedCase?.currentAction ||
+
+    recoveryResult?.recoveryAction ||
+
+    recoveryResult
+      ?.recoveryResult
+      ?.recoveryAction ||
+
+    "REVIEW";
+
+
+  const finalRoutingDecision =
+    liveCreatedCase?.routingDecision ||
+
+    recoveryResult?.routingDecision ||
+
+    recoveryResult
+      ?.recoveryResult
+      ?.routingDecision ||
+
+    null;
+
+
+  const routingConfidence =
+    typeof finalRoutingDecision?.confidence ===
+    "number"
+
+      ? Math.round(
+          finalRoutingDecision.confidence *
+          100
+        )
+
+      : null;
+
+
   const updateField =
     (event) => {
 
@@ -1730,62 +2818,6 @@ function CreateCaseModal({
 
         })
       );
-    };
-
-
-  // ====================================================
-  // CREATE PAYMENT
-  // ====================================================
-
-  const createPaymentCase =
-    async () => {
-
-      try {
-
-        setSubmitting(true);
-
-        setFormError("");
-
-
-        const response =
-          await axios.post(
-            "/api/payments",
-            {
-
-              ...form,
-
-              status:
-                "failed"
-            }
-          );
-
-
-        setCreatedPayment(
-          response.data.payment
-        );
-
-
-        await refreshData();
-
-      } catch (error) {
-
-        console.error(error);
-
-
-        setFormError(
-
-          error.response
-            ?.data
-            ?.message ||
-
-          "Could not create recovery case."
-
-        );
-
-      } finally {
-
-        setSubmitting(false);
-      }
     };
 
 
@@ -1840,491 +2872,767 @@ function CreateCaseModal({
     };
 
 
+  // ====================================================
+  // CREATE PAYMENT + CONTINUE TO AGENT
+  // ====================================================
+
+  const createPaymentCase =
+    async () => {
+
+      /*
+        Validate the small set of fields the operator can edit before
+        creating any backend record. This prevents avoidable cases such
+        as zero/negative amounts or negative previous-attempt counts.
+      */
+
+      if (
+        !String(form.paymentId || "").trim() ||
+        !String(form.customerId || "").trim()
+      ) {
+
+        setFormError(
+          "Payment ID and Customer ID are required."
+        );
+
+        return;
+      }
+
+
+      if (
+        !Number.isFinite(Number(form.amount)) ||
+        Number(form.amount) <= 0
+      ) {
+
+        setFormError(
+          "Amount must be greater than ₹0."
+        );
+
+        return;
+      }
+
+
+      if (
+        !Number.isInteger(Number(form.attemptCount)) ||
+        Number(form.attemptCount) < 0
+      ) {
+
+        setFormError(
+          "Previous Attempts must be a whole number of 0 or more."
+        );
+
+        return;
+      }
+
+
+      /*
+        React state updates are asynchronous. Track this request locally
+        so an agent failure after a successful payment creation gets the
+        correct error message in the same async flow.
+      */
+
+      let paymentWasCreated = false;
+
+
+      try {
+
+        setSubmitting(true);
+
+        setFormError("");
+
+
+        const response =
+          await axios.post(
+            "/api/payments",
+            {
+
+              ...form,
+
+              status:
+                "failed"
+            }
+          );
+
+
+        setCreatedPayment(
+          response.data.payment
+        );
+
+        paymentWasCreated = true;
+
+
+        /*
+          Keep the backend sequence exactly the same:
+
+          1. Create the failed payment.
+          2. Run the recovery agent for that payment.
+
+          The only change is that the UI now continues
+          automatically into the processing stage.
+        */
+
+        const recoveryResponse =
+          await axios.post(
+
+            `/api/recovery/${form.paymentId}`
+
+          );
+
+
+        setRecoveryResult(
+          recoveryResponse.data
+        );
+
+
+        await refreshData();
+
+      } catch (error) {
+
+        console.error(error);
+
+
+        setFormError(
+
+          error.response
+            ?.data
+            ?.message ||
+
+          (
+            paymentWasCreated
+
+              ? "Case details were saved, but recovery processing failed. Use Retry Agent to continue."
+
+              : "Could not create recovery case."
+          )
+
+        );
+
+      } finally {
+
+        setSubmitting(false);
+      }
+    };
+
+
+  const formLocked =
+    Boolean(createdPayment);
+
+
   return (
 
-    <div className="case-detail-overlay">
+    <div className="case-detail-overlay create-case-overlay">
 
-      <div className="create-case-card">
+      <div
+        className={
+          `create-workflow-shell ${
+            recoveryResult
+              ? "three-stage"
+              : createdPayment
+                ? "two-stage"
+                : "one-stage"
+          }`
+        }
+      >
 
-        <div className="detail-header">
+        {/* =================================================
+            STAGE 1 — CREATE CASE
+        ================================================== */}
 
-          <div>
+        <section className="create-stage-column">
 
-            <p className="eyebrow">
-              NEW FAILURE EVENT
-            </p>
-
-            <h2>
-              Create Recovery Case
-            </h2>
-
+          <div className="create-stage-label">
+            <span>1</span>
+            Create case
           </div>
 
 
-          <button
-            className="close-button"
-            onClick={onClose}
-          >
-            ×
-          </button>
+          <div className="create-stage-card create-form-stage">
 
-        </div>
+            <div className="create-stage-header">
 
+              <div>
 
-        {/* ==========================================
-            CREATE FORM
-        =========================================== */}
+                <p className="eyebrow">
+                  NEW FAILURE EVENT
+                </p>
 
-        {
-          !createdPayment
-          &&
-          (
-            <>
-
-              <div className="create-form">
-
-                <FormField
-                  label="Payment ID"
-                  name="paymentId"
-                  value={form.paymentId}
-                  onChange={updateField}
-                />
-
-
-                <FormField
-                  label="Customer ID"
-                  name="customerId"
-                  value={form.customerId}
-                  onChange={updateField}
-                />
-
-
-                <FormField
-                  label="Amount (₹)"
-                  name="amount"
-                  type="number"
-                  value={form.amount}
-                  onChange={updateField}
-                />
-
-
-                <SelectField
-
-                  label="Customer Type"
-
-                  name="customerType"
-
-                  value={
-                    form.customerType
-                  }
-
-                  onChange={
-                    updateField
-                  }
-
-                  options={[
-                    "new",
-                    "returning"
-                  ]}
-                />
-
-
-                <SelectField
-
-                  label="Payment Method"
-
-                  name="method"
-
-                  value={
-                    form.method
-                  }
-
-                  onChange={
-                    updateField
-                  }
-
-                  options={[
-                    "card",
-                    "upi"
-                  ]}
-                />
-
-
-                <SelectField
-
-                  label="Failure Reason"
-
-                  name="failureReason"
-
-                  value={
-                    form.failureReason
-                  }
-
-                  onChange={
-                    updateField
-                  }
-
-                  options={[
-                    "bank_restriction",
-                    "issuer_declined",
-                    "timeout",
-                    "insufficient_funds",
-                    "checkout_abandoned"
-                  ]}
-                />
-
-
-                <FormField
-
-                  label="Previous Attempts"
-
-                  name="attemptCount"
-
-                  type="number"
-
-                  value={
-                    form.attemptCount
-                  }
-
-                  onChange={
-                    updateField
-                  }
-                />
+                <h2>
+                  Create recovery case
+                </h2>
 
               </div>
 
 
-              <div className="ai-info-box">
+              <button
+                type="button"
+                className="close-button"
+                onClick={onClose}
+                aria-label="Close create recovery case"
+              >
+                ×
+              </button>
 
-                <BrainCircuit size={19} />
+            </div>
 
 
-                <div>
+            <div
+              className={
+                `create-form ${
+                  formLocked
+                    ? "form-locked"
+                    : ""
+                }`
+              }
+            >
 
-                  <strong>
-                    Agent routing
-                  </strong>
+              <FormField
+                label="Payment ID"
+                name="paymentId"
+                value={form.paymentId}
+                onChange={updateField}
+                disabled={formLocked}
+              />
+
+
+              <FormField
+                label="Customer ID"
+                name="customerId"
+                value={form.customerId}
+                onChange={updateField}
+                disabled={formLocked}
+              />
+
+
+              <FormField
+                label="Amount (₹)"
+                name="amount"
+                type="number"
+                value={form.amount}
+                onChange={updateField}
+                disabled={formLocked}
+                min={1}
+                step={1}
+              />
+
+
+              <SelectField
+                label="Customer Type"
+                name="customerType"
+                value={
+                  form.customerType
+                }
+                onChange={
+                  updateField
+                }
+                options={[
+                  "new",
+                  "returning"
+                ]}
+                disabled={formLocked}
+              />
+
+
+              <SelectField
+                label="Payment Method"
+                name="method"
+                value={
+                  form.method
+                }
+                onChange={
+                  updateField
+                }
+                options={[
+                  "card",
+                  "upi"
+                ]}
+                disabled={formLocked}
+              />
+
+
+              <SelectField
+                label="Failure Reason"
+                name="failureReason"
+                value={
+                  form.failureReason
+                }
+                onChange={
+                  updateField
+                }
+                options={[
+                  "bank_restriction",
+                  "issuer_declined",
+                  "timeout",
+                  "insufficient_funds",
+                  "checkout_abandoned"
+                ]}
+                disabled={formLocked}
+              />
+
+
+              <FormField
+                label="Previous Attempts"
+                name="attemptCount"
+                type="number"
+                value={
+                  form.attemptCount
+                }
+                onChange={
+                  updateField
+                }
+                disabled={formLocked}
+                min={0}
+                step={1}
+              />
+
+            </div>
+
+
+            <div className="ai-info-box">
+
+              <BrainCircuit size={19} />
+
+
+              <div>
+
+                <strong>
+                  Agent routing
+                </strong>
+
+                <p>
+                  Rules handle known failures.
+                  Gemini is used only when the
+                  next recovery path is uncertain.
+                </p>
+
+              </div>
+
+            </div>
+
+
+            <div className="create-stage-actions">
+
+              {
+                !createdPayment
+
+                  ?
+
+                  <>
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={onClose}
+                      disabled={submitting}
+                    >
+                      Cancel
+                    </button>
+
+                    <button
+                      type="button"
+                      className="run-recovery-button"
+                      disabled={submitting}
+                      onClick={
+                        createPaymentCase
+                      }
+                    >
+
+                      {
+                        submitting
+
+                          ?
+
+                          (
+                            <>
+                              <RefreshCcw
+                                size={17}
+                                className="spin-icon"
+                              />
+                              Creating...
+                            </>
+                          )
+
+                          :
+
+                          "Create Case"
+                      }
+
+                    </button>
+                  </>
+
+                  :
+
+                  <div className="stage-complete-strip">
+
+                    <CheckCircle2 size={18} />
+
+                    Case details saved
+
+                  </div>
+              }
+
+            </div>
+
+          </div>
+
+        </section>
+
+
+        {/* =================================================
+            STAGE 2 — AGENT PROCESSING
+        ================================================== */}
+
+        {
+          createdPayment
+          &&
+          (
+            <section className="create-stage-column">
+
+              <div className="create-stage-label">
+                <span>2</span>
+                Agent processing
+              </div>
+
+
+              <div className="create-stage-card agent-processing-stage">
+
+                <div className="create-stage-header compact">
+
+                  <div>
+
+                    <p className="eyebrow">
+                      RECOVERY ENGINE
+                    </p>
+
+                    <h2>
+                      Agent processing
+                    </h2>
+
+                  </div>
+
+                </div>
+
+
+                <div className="agent-processing-body">
+
+                  <div
+                    className={
+                      `processing-orb ${
+                        recoveryResult
+                          ? "complete"
+                          : ""
+                      }`
+                    }
+                  >
+
+                    {
+                      recoveryResult
+
+                        ?
+
+                        <CheckCircle2 size={34} />
+
+                        :
+
+                        <RefreshCcw
+                          size={34}
+                          className="spin-icon"
+                        />
+                    }
+
+                  </div>
+
+
+                  <h3>
+
+                    {
+                      recoveryResult
+
+                        ? "Routing complete"
+
+                        : "RecoverAI is evaluating the case"
+                    }
+
+                  </h3>
+
 
                   <p>
-                    Known failures use rules.
-                    Unknown failures are sent
-                    to Gemini only when recovery
-                    is run.
+
+                    {
+                      recoveryResult
+
+                        ? "The recovery path has been selected and the case is ready."
+
+                        : "Evaluating retry, payment, promise-to-pay and conversational recovery paths."
+                    }
+
                   </p>
+
+
+                  <div className="processing-skeleton">
+
+                    <span className="wide"></span>
+
+                    <span className="medium"></span>
+
+                    <div>
+                      <i></i>
+                      <span></span>
+                    </div>
+
+                    <div>
+                      <i></i>
+                      <span></span>
+                    </div>
+
+                    <div>
+                      <i></i>
+                      <span className="short"></span>
+                    </div>
+
+                  </div>
+
+
+                  {
+                    !submitting &&
+                    !recoveryResult &&
+                    formError
+                    &&
+                    (
+                      <button
+                        type="button"
+                        className="run-recovery-button"
+                        onClick={
+                          runCreatedRecovery
+                        }
+                      >
+                        <RefreshCcw size={17} />
+                        Retry Agent
+                      </button>
+                    )
+                  }
 
                 </div>
 
               </div>
 
-
-              <button
-                className="run-recovery-button"
-
-                disabled={
-                  submitting
-                }
-
-                onClick={
-                  createPaymentCase
-                }
-              >
-
-                {
-                  submitting
-
-                    ?
-
-                    "Creating..."
-
-                    :
-
-                    "Create Case"
-                }
-
-              </button>
-
-            </>
+            </section>
           )
         }
 
 
-        {/* ==========================================
-            CREATED, NOT YET PROCESSED
-        =========================================== */}
+        {/* =================================================
+            STAGE 3 — RESULT
+        ================================================== */}
 
         {
-          createdPayment &&
-          !recoveryResult
+          recoveryResult
           &&
           (
-            <div className="created-case-success">
+            <section className="create-stage-column">
 
-              <CheckCircle2
-                size={34}
-              />
-
-
-              <h3>
-                Recovery case created
-              </h3>
+              <div className="create-stage-label">
+                <span>3</span>
+                Case created
+              </div>
 
 
-              <p>
+              <div className="create-stage-card create-result-stage">
+
+                <div className="create-stage-header compact">
+
+                  <div>
+
+                    <p className="eyebrow">
+                      RECOVERY READY
+                    </p>
+
+                    <h2>
+                      Create recovery case
+                    </h2>
+
+                  </div>
+
+
+                  <button
+                    type="button"
+                    className="close-button"
+                    onClick={onClose}
+                    aria-label="Close"
+                  >
+                    ×
+                  </button>
+
+                </div>
+
+
+                <div className="result-success-hero">
+
+                  <div className="result-success-icon">
+                    <CheckCircle2 size={42} />
+                  </div>
+
+
+                  <h3>
+                    Case created
+                  </h3>
+
+
+                  <div className="result-success-banner">
+
+                    <CheckCircle2 size={18} />
+
+                    Recovery case has been
+                    created successfully.
+
+                  </div>
+
+                </div>
+
+
+                <div className="result-summary-table">
+
+                  <div>
+
+                    <span>
+                      Recovery action
+                    </span>
+
+                    <strong>
+                      {
+                        formatAction(
+                          finalRecoveryAction
+                        )
+                      }
+                    </strong>
+
+                  </div>
+
+
+                  <div>
+
+                    <span>
+                      Confidence
+                    </span>
+
+                    <strong className="confidence-success">
+
+                      {
+                        routingConfidence !== null
+
+                          ? `${routingConfidence}%`
+
+                          : "—"
+                      }
+
+                    </strong>
+
+                  </div>
+
+
+                  <div>
+
+                    <span>
+                      Current outcome
+                    </span>
+
+                    <StatusBadge
+                      status={
+                        liveOutcome ||
+                        "UNKNOWN"
+                      }
+                    />
+
+                  </div>
+
+                </div>
+
 
                 {
-                  form.paymentId
+                  liveOutcome ===
+                  "PENDING_PAYMENT"
+                  &&
+                  (
+                    <div className="blocked-action-message">
+
+                      <Clock3 size={17} />
+
+                      Waiting for Razorpay payment confirmation.
+                      This status updates automatically.
+
+                    </div>
+                  )
                 }
 
-                {" is now stored in MongoDB and ready for analysis."}
-
-              </p>
-
-
-              <button
-                className="run-recovery-button"
-
-                disabled={
-                  submitting
-                }
-
-                onClick={
-                  runCreatedRecovery
-                }
-              >
-
-                {
-                  submitting
-
-                    ?
-
-                    (
-                      <>
-
-                        <RefreshCcw
-                          size={17}
-                          className="spin-icon"
-                        />
-
-                        Agent Processing...
-
-                      </>
-                    )
-
-                    :
-
-                    (
-                      <>
-
-                        <Play size={17} />
-
-                        Run RecoverAI Agent
-
-                      </>
-                    )
-                }
-
-              </button>
-
-            </div>
-          )
-        }
-
-
-        {/* ==========================================
-            AGENT RESULT
-        =========================================== */}
-
-        {
-          recoveryResult &&
-          (
-            <div className="agent-result-card">
-
-              {
-                liveOutcome ===
-                "RECOVERED"
-
-                  ?
-
-                  <CheckCircle2
-                    size={34}
-                  />
-
-                  :
-
-                  <Zap
-                    size={34}
-                  />
-              }
-
-
-              <p className="eyebrow">
 
                 {
                   liveOutcome ===
                   "RECOVERED"
+                  &&
+                  (
+                    <div className="recovery-result-box">
 
-                    ?
-
-                    "PAYMENT CONFIRMED"
-
-                    :
-
-                    "AGENT COMPLETED"
-                }
-
-              </p>
+                      <CheckCircle2 size={20} />
 
 
-              <h3>
+                      <div>
 
-                {
-                  formatAction(
-                    recoveryResult
-                      .recoveryAction
+                        <strong>
+                          Revenue recovered successfully
+                        </strong>
+
+                        <p>
+                          Razorpay confirmed the payment
+                          and RecoverAI updated the case
+                          automatically.
+                        </p>
+
+                      </div>
+
+                    </div>
                   )
                 }
 
-              </h3>
-
-
-              <p>
 
                 {
-                  recoveryResult
-                    .explanation
+                  livePaymentLink &&
+                  liveOutcome !==
+                  "RECOVERED"
+                  &&
+                  (
+                    <a
+                      href={livePaymentLink}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="payment-link-button"
+                    >
+
+                      Open Razorpay Recovery Link
+
+                      <ExternalLink size={17} />
+
+                    </a>
+                  )
                 }
 
-              </p>
 
-
-              <div className="result-state-row">
-
-                <span>
-                  Current Outcome
-                </span>
-
-
-                <StatusBadge
-                  status={
-                    liveOutcome ||
-                    "UNKNOWN"
-                  }
-                />
+                <button
+                  type="button"
+                  className="secondary-button result-close-button"
+                  onClick={onClose}
+                >
+                  Done
+                </button>
 
               </div>
 
-
-              {
-                liveOutcome ===
-                "PENDING_PAYMENT"
-                &&
-                (
-                  <div className="blocked-action-message">
-
-                    <Clock3
-                      size={17}
-                    />
-
-                    Waiting for Razorpay payment confirmation.
-                    This status updates automatically.
-
-                  </div>
-                )
-              }
-
-
-              {
-                liveOutcome ===
-                "RECOVERED"
-                &&
-                (
-                  <div className="recovery-result-box">
-
-                    <CheckCircle2
-                      size={20}
-                    />
-
-
-                    <div>
-
-                      <strong>
-                        Revenue recovered successfully
-                      </strong>
-
-                      <p>
-                        Razorpay confirmed the payment
-                        and RecoverAI updated the case
-                        automatically.
-                      </p>
-
-                    </div>
-
-                  </div>
-                )
-              }
-
-
-              {
-                liveCreatedCase
-                  ?.razorpayPaymentId
-                &&
-                (
-                  <div className="detail-section">
-
-                    <h4>
-                      Razorpay Payment
-                    </h4>
-
-                    <p>
-                      {
-                        liveCreatedCase
-                          .razorpayPaymentId
-                      }
-                    </p>
-
-                  </div>
-                )
-              }
-
-
-              {
-                livePaymentLink
-                &&
-                liveOutcome !==
-                "RECOVERED"
-                &&
-                (
-                  <a
-                    href={
-                      livePaymentLink
-                    }
-
-                    target="_blank"
-
-                    rel="noreferrer"
-
-                    className="payment-link-button"
-                  >
-
-                    <ExternalLink
-                      size={17}
-                    />
-
-                    Open Razorpay Recovery Link
-
-                  </a>
-                )
-              }
-
-            </div>
+            </section>
           )
         }
 
 
         {
-          formError &&
+          formError
+          &&
           (
-            <div className="action-error">
+            <div className="workflow-error">
 
               {formError}
 
@@ -2360,6 +3668,34 @@ function CaseDetailPanel({
   const [actionError, setActionError] =
     useState("");
 
+  const [
+  conversationMessage,
+  setConversationMessage
+] = useState("");
+
+
+const [
+  conversationResult,
+  setConversationResult
+] = useState(null);
+
+
+const [
+  conversationLoading,
+  setConversationLoading
+] = useState(false);
+
+const [
+  isListening,
+  setIsListening
+] = useState(false);
+
+
+const [
+  speechSupported,
+  setSpeechSupported
+] = useState(true);
+
 
   const blockedStates = [
 
@@ -2369,7 +3705,9 @@ function CaseDetailPanel({
 
     "PENDING_PAYMENT",
 
-    "HUMAN_REVIEW"
+    "HUMAN_REVIEW",
+
+    "PROMISE_TO_PAY"
 
   ];
 
@@ -2378,6 +3716,11 @@ function CaseDetailPanel({
     !blockedStates.includes(
       payment.currentOutcome
     );
+
+    const routingDecision =
+  result?.routingDecision ||
+  payment.routingDecision ||
+  null;
 
 
   const runRecovery =
@@ -2428,6 +3771,549 @@ function CaseDetailPanel({
       }
     };
 
+  const runConversationRecovery =
+  async () => {
+
+    try {
+
+      setConversationLoading(true);
+
+      setActionError("");
+
+      setConversationResult(null);
+
+
+      const response =
+  await axios.post(
+    "/api/conversation/recover",
+
+    {
+      payment: {
+
+        paymentId:
+          payment.paymentId,
+
+        customerId:
+          payment.customerId,
+
+        customerType:
+          payment.customerType,
+
+        amount:
+          payment.amount,
+
+        status:
+          "failed",
+
+        method:
+          payment.method,
+
+        failureReason:
+          payment.failureReason,
+
+        attemptCount:
+          payment.attemptCount
+      },
+
+      customerMessage:
+        conversationMessage
+    },
+
+    {
+      timeout:
+        40000
+    }
+  );
+
+
+        
+
+
+      setConversationResult(
+        response.data
+      );
+
+      const result =
+  response.data;
+
+  const speechLanguage =
+  detectSpeechLanguage(
+    conversationMessage
+  );
+
+
+const shouldSpeakHindi =
+  speechLanguage ===
+  "hi-IN";
+
+
+if (
+  result.outcome ===
+  "PROMISE_TO_PAY"
+) {
+
+  const responseText =
+    shouldSpeakHindi
+
+      ? `Theek hai. Aapka payment promise ${result.analysis?.promisedDate || "later"} ke liye note kar liya gaya hai.`
+
+      : `Okay. Your payment promise for ${result.analysis?.promisedDate || "later"} has been recorded.`;
+
+
+
+  speakResponse(
+    responseText,
+    conversationMessage
+  );
+
+}
+
+
+else if (
+  result.outcome ===
+  "PENDING_PAYMENT"
+) {
+
+  const responseText =
+    shouldSpeakHindi
+
+      ? "Theek hai. Maine aapke liye payment link ready kar diya hai."
+
+      : "Okay. I have prepared a payment link for you.";
+
+
+
+  speakResponse(
+    responseText,
+    conversationMessage
+  );
+
+}
+
+
+else if (
+  result.outcome ===
+  "HUMAN_REVIEW"
+) {
+
+  const responseText =
+    shouldSpeakHindi
+
+      ? "Theek hai. Is case ko human support ke liye forward kiya ja raha hai."
+
+      : "Okay. This case is being forwarded for human review.";
+
+
+
+  speakResponse(
+    responseText,
+    conversationMessage
+  );
+
+}
+
+
+else {
+
+  const responseText =
+    shouldSpeakHindi
+
+      ? (
+          result.message ||
+          "Aapki response process kar li gayi hai."
+        )
+
+      : "Your response has been processed.";
+
+
+
+  speakResponse(
+    responseText,
+    conversationMessage
+  );
+
+}
+
+
+      await refreshData();
+
+
+    } catch (error) {
+
+      console.error(error);
+
+
+      setActionError(
+
+        error.response
+          ?.data
+          ?.message ||
+
+        "Conversational recovery could not be processed."
+      );
+
+
+    } finally {
+
+      setConversationLoading(false);
+    }
+  };
+
+
+  const startVoiceInput = async () => {
+
+  const SpeechRecognition =
+    window.SpeechRecognition ||
+    window.webkitSpeechRecognition;
+
+
+  if (!SpeechRecognition) {
+
+    setSpeechSupported(false);
+
+    setActionError(
+      "Speech recognition is not supported in this browser. Please use Chrome or Edge."
+    );
+
+    return;
+  }
+
+
+  try {
+
+    /*
+      Ask for microphone permission explicitly first.
+      This makes permission-related failures much clearer.
+    */
+
+    if (
+      !navigator.mediaDevices?.getUserMedia
+    ) {
+
+      setActionError(
+        "Microphone access is not available in this browser context. Use a supported browser over HTTPS, or type the customer response instead."
+      );
+
+      return;
+    }
+
+
+    await navigator.mediaDevices.getUserMedia({
+      audio: true
+    });
+
+
+    const recognition =
+      new SpeechRecognition();
+
+
+    /*
+      Hinglish often contains both Hindi and English.
+      Chrome's hi-IN recognition can still capture
+      mixed Hindi-English speech reasonably well.
+    */
+
+    recognition.lang =
+      "en-IN";
+
+
+    recognition.interimResults =
+      true;
+
+
+    recognition.continuous =
+      false;
+
+
+    recognition.maxAlternatives =
+      1;
+
+
+    recognition.onstart =
+      () => {
+
+        setIsListening(true);
+
+        setActionError("");
+      };
+
+
+    recognition.onresult =
+      (event) => {
+
+        let transcript = "";
+
+
+        for (
+          let i = event.resultIndex;
+          i < event.results.length;
+          i++
+        ) {
+
+          transcript +=
+            event.results[i][0]
+              .transcript;
+        }
+
+
+        setConversationMessage(
+  transcript.trim()
+);
+      };
+
+
+    recognition.onerror =
+      (event) => {
+
+        console.error(
+          "Speech recognition error:",
+          event.error,
+          event.message
+        );
+
+
+        let message =
+          `Voice recognition failed: ${event.error}`;
+
+
+        if (
+          event.error ===
+          "not-allowed"
+        ) {
+
+          message =
+            "Microphone access was blocked. Allow microphone permission for this site and try again.";
+        }
+
+
+        if (
+          event.error ===
+          "audio-capture"
+        ) {
+
+          message =
+            "No microphone could be detected by the browser.";
+        }
+
+
+        if (
+          event.error ===
+          "no-speech"
+        ) {
+
+          message =
+            "No speech was detected. Click the microphone and speak immediately.";
+        }
+
+
+        if (
+          event.error ===
+          "network"
+        ) {
+
+          message =
+            "Browser speech recognition could not reach its speech service. Check your internet connection and try again.";
+        }
+
+
+        setActionError(
+          message
+        );
+
+
+        setIsListening(false);
+      };
+
+
+    recognition.onend =
+      () => {
+
+        setIsListening(false);
+      };
+
+
+    recognition.start();
+
+
+  } catch (error) {
+
+    console.error(
+      "Microphone permission error:",
+      error
+    );
+
+
+    setIsListening(false);
+
+
+    if (
+      error.name ===
+      "NotAllowedError"
+    ) {
+
+      setActionError(
+        "Microphone permission is denied. Allow microphone access in the browser address bar and try again."
+      );
+
+      return;
+    }
+
+
+    if (
+      error.name ===
+      "NotFoundError"
+    ) {
+
+      setActionError(
+        "No microphone was found on this device."
+      );
+
+      return;
+    }
+
+
+    setActionError(
+      `Microphone could not be started: ${error.message}`
+    );
+  }
+};
+
+
+function detectSpeechLanguage(text) {
+
+  if (!text) {
+    return "en-IN";
+  }
+
+
+  // Detect Hindi written in Devanagari.
+  const devanagariPattern =
+    /[\u0900-\u097F]/;
+
+
+  if (
+    devanagariPattern.test(text)
+  ) {
+    return "hi-IN";
+  }
+
+
+  // Common Roman Hindi / Hinglish words.
+  const hindiWords = [
+    "hai",
+    "hain",
+    "nahi",
+    "nahin",
+    "haan",
+    "abhi",
+    "kal",
+    "aaj",
+    "paise",
+    "paisa",
+    "kar",
+    "karo",
+    "karna",
+    "karunga",
+    "karungi",
+    "karta",
+    "karti",
+    "dunga",
+    "dungi",
+    "mujhe",
+    "mera",
+    "meri",
+    "maine",
+    "main",
+    "mein",
+    "kab",
+    "baad",
+    "thoda",
+    "shayad",
+    "pata",
+    "kya",
+    "kyun",
+    "kaise",
+    "hoga",
+    "hogi",
+    "bhej",
+    "bhejo",
+    "ko"
+  ];
+
+
+  const words =
+    text
+      .toLowerCase()
+      .replace(
+        /[^a-zA-Z\u0900-\u097F\s]/g,
+        " "
+      )
+      .split(/\s+/)
+      .filter(Boolean);
+
+
+  const containsHindiWord =
+    words.some(
+      (word) =>
+        hindiWords.includes(
+          word
+        )
+    );
+
+
+  if (
+    containsHindiWord
+  ) {
+    return "hi-IN";
+  }
+
+
+  return "en-IN";
+}
+
+
+
+const speakResponse =
+  (
+    text,
+    customerMessage
+  ) => {
+
+    if (
+      !("speechSynthesis" in window)
+    ) {
+      return;
+    }
+
+
+    window.speechSynthesis.cancel();
+
+
+    const utterance =
+      new SpeechSynthesisUtterance(
+        text
+      );
+
+
+    utterance.lang =
+      detectSpeechLanguage(
+        customerMessage
+      );
+
+
+    utterance.rate =
+      0.95;
+
+
+    utterance.pitch =
+      1;
+
+
+    window.speechSynthesis.speak(
+      utterance
+    );
+  };
+
 
   return (
 
@@ -2451,8 +4337,10 @@ function CaseDetailPanel({
 
 
           <button
+            type="button"
             className="close-button"
             onClick={onClose}
+            aria-label="Close recovery case"
           >
             ×
           </button>
@@ -2556,24 +4444,52 @@ function CaseDetailPanel({
           />
 
 
-          <p className="decision-action">
+          {
+            payment.currentAction
+            &&
+            (
+              <div className="decision-action-block">
 
-            {
-              payment.currentAction ===
-              "REVIEW"
+                <span className="detail-inline-label">
 
-                ?
+                  {
+                    payment.currentOutcome ===
+                    "NOT_PROCESSED"
 
-                "AI Analysis Required"
+                      ?
 
-                :
+                      "Recommended next action"
 
-                formatAction(
-                  payment.currentAction
-                )
-            }
+                      :
 
-          </p>
+                      "Latest recovery action"
+                  }
+
+                </span>
+
+
+                <p className="decision-action">
+
+                  {
+                    payment.currentAction ===
+                    "REVIEW"
+
+                      ?
+
+                      "Requires AI Analysis"
+
+                      :
+
+                      formatAction(
+                        payment.currentAction
+                      )
+                  }
+
+                </p>
+
+              </div>
+            )
+          }
 
         </div>
 
@@ -2595,6 +4511,76 @@ function CaseDetailPanel({
 
 
         {
+  routingDecision &&
+  (
+    <div className="detail-section">
+
+      <h4>
+        Routing Decision
+      </h4>
+
+      <div className="detail-grid">
+
+        <DetailItem
+          label="Recovery Channel"
+          value={
+            formatAction(
+              routingDecision.channel
+            )
+          }
+        />
+
+        <DetailItem
+          label="Decision Source"
+          value={
+            routingDecision.source === "RULE"
+              ? "Rule Engine"
+              : routingDecision.source === "AI"
+              ? "Gemini AI"
+              : routingDecision.source === "AI_FALLBACK"
+              ? "AI Fallback"
+              : formatAction(
+                  routingDecision.source
+                )
+          }
+        />
+
+        <DetailItem
+          label="Confidence"
+          value={
+            routingDecision.confidence != null
+              ? `${Math.round(
+                  Number(
+                    routingDecision.confidence
+                  ) * 100
+                )}%`
+              : "—"
+          }
+        />
+
+      </div>
+
+      <p
+        style={{
+          marginTop: "14px"
+        }}
+      >
+        <strong>
+          Routing reason:
+        </strong>
+        {" "}
+        {
+          routingDecision.reason ||
+          "No routing explanation available."
+        }
+      </p>
+
+    </div>
+  )
+}
+
+
+        {
           payment.currentAction ===
           "REVIEW"
 
@@ -2613,17 +4599,17 @@ function CaseDetailPanel({
                   size={18}
                 />
 
-                Gemini Required
+                AI Analysis Required
 
               </div>
 
 
               <p>
-                The deterministic recovery
-                rules do not recognize this
-                failure. Gemini will diagnose
-                it when you run the recovery
-                agent.
+                The rule engine does not have
+                enough certainty to choose the
+                next recovery path. RecoverAI
+                will use Gemini when you run
+                this case.
               </p>
 
             </div>
@@ -2635,6 +4621,7 @@ function CaseDetailPanel({
           canRunRecovery &&
           (
             <button
+        type="button"
               className="run-recovery-button"
 
               onClick={
@@ -2835,7 +4822,202 @@ function CaseDetailPanel({
             </div>
           )
         }
+        
 
+        {
+  payment.currentAction ===
+    "START_CONVERSATIONAL_RECOVERY"
+
+  ||
+  result?.channel ===
+    "CONVERSATIONAL_RECOVERY"
+
+  ?
+
+  (
+    <div className="detail-section">
+
+      <h4>
+        Conversational Recovery
+      </h4>
+
+
+      <p>
+        RecoverAI selected a conversational recovery flow for this case.
+      </p>
+      
+      <button
+  className="secondary-button"
+  type="button"
+  onClick={startVoiceInput}
+  disabled={
+    isListening ||
+    !speechSupported
+  }
+  style={{
+    marginTop: "12px"
+  }}
+>
+  {
+    isListening
+      ? "Listening..."
+      : "🎤 Speak in Hindi / Hinglish"
+  }
+</button>
+
+      <textarea
+        className="conversation-response-input"
+        value={conversationMessage}
+        onChange={(event) =>
+          setConversationMessage(
+            event.target.value
+          )
+        }
+        placeholder="Enter the customer's response in English, Hindi, or Hinglish..."
+        rows={4}
+      />
+
+
+      <button
+        type="button"
+        className="run-recovery-button"
+        disabled={
+          conversationLoading ||
+          !conversationMessage.trim()
+        }
+        onClick={
+          runConversationRecovery
+        }
+      >
+
+        {
+          conversationLoading
+            ? "Analyzing Conversation..."
+            : "Process Customer Response"
+        }
+
+      </button>
+
+
+      {
+        conversationResult &&
+        (
+          <div className="recovery-result-box">
+
+            <BrainCircuit
+              size={20}
+            />
+
+
+            <div>
+
+              <strong>
+                {
+                  formatAction(
+                    conversationResult.finalAction
+                  )
+                }
+              </strong>
+
+
+              <p>
+                {
+                  conversationResult.message
+                }
+              </p>
+
+
+              <p>
+                Intent:{" "}
+                <strong>
+                  {
+                    formatAction(
+                      conversationResult
+                        .analysis
+                        ?.intent ||
+                      "UNKNOWN"
+                    )
+                  }
+                </strong>
+              </p>
+
+
+              <p>
+                Confidence:{" "}
+                <strong>
+                  {
+                    Math.round(
+                      Number(
+                        conversationResult
+                          .analysis
+                          ?.confidence || 0
+                      ) * 100
+                    )
+                  }%
+                </strong>
+              </p>
+
+
+              {
+                conversationResult
+                  .analysis
+                  ?.promisedDate
+                &&
+                (
+                  <p>
+                    Promised Date:{" "}
+                    <strong>
+                      {
+                        conversationResult
+                          .analysis
+                          .promisedDate
+                      }
+                    </strong>
+                  </p>
+                )
+              }
+
+            </div>
+
+          </div>
+        )
+      }
+
+
+      {
+        conversationResult
+          ?.executionResult
+          ?.paymentLinkUrl
+        &&
+        (
+          <a
+            href={
+              conversationResult
+                .executionResult
+                .paymentLinkUrl
+            }
+            target="_blank"
+            rel="noreferrer"
+            className="payment-link-button"
+          >
+
+            <ExternalLink
+              size={17}
+            />
+
+            Open Razorpay Recovery Link
+
+          </a>
+        )
+      }
+
+    </div>
+  )
+
+  :
+
+  null
+}
 
         {
           actionError &&
@@ -2898,6 +5080,730 @@ function CaseDetailPanel({
   );
 }
 
+// ======================================================
+// PROMISE-TO-PAY TRACKER
+// ======================================================
+
+function PromiseTrackerPage({
+  promises,
+  recoveryCases,
+  refreshData
+}) {
+
+  const [selectedPaymentId, setSelectedPaymentId] =
+    useState(null);
+
+  const [expandedPromiseId, setExpandedPromiseId] =
+    useState(() => promises?.[0]?.paymentId || null);
+
+
+  const [
+    promiseSearchTerm,
+    setPromiseSearchTerm
+  ] = useState("");
+
+
+  // ====================================================
+  // PROMISE QUEUE PAGINATION
+  // ====================================================
+
+  const PROMISES_PER_PAGE = 10;
+
+  const [
+    promisePage,
+    setPromisePage
+  ] = useState(1);
+
+
+  const selectedRecoveryCase =
+    recoveryCases.find(
+      (payment) =>
+        payment.paymentId === selectedPaymentId
+    ) || null;
+
+  const now = new Date();
+
+  const activePromises =
+    promises.filter(
+      (item) =>
+        item.promise?.promiseStatus === "ACTIVE"
+    );
+
+  const totalPromisedAmount =
+    activePromises.reduce(
+      (total, item) =>
+        total + Number(item.promise?.promisedAmount || 0),
+      0
+    );
+
+  const duePromises =
+    promises.filter((item) => {
+      const status = item.promise?.promiseStatus;
+      const promisedDate = item.promise?.promisedDate;
+
+      return (
+        (status === "DUE" || status === "ACTIVE") &&
+        promisedDate &&
+        new Date(promisedDate) <= now
+      );
+    });
+
+  const brokenPromises =
+    promises.filter(
+      (item) => item.promise?.promiseStatus === "BROKEN"
+    );
+
+  const keptPromises =
+    promises.filter(
+      (item) => item.promise?.promiseStatus === "KEPT"
+    );
+
+  const orderedPromises =
+    useMemo(
+      () =>
+        [...promises].sort(
+          (a, b) =>
+            new Date(a.promise?.promisedDate || 0) -
+            new Date(b.promise?.promisedDate || 0)
+        ),
+      [promises]
+    );
+
+
+  const filteredPromises =
+    useMemo(() => {
+
+      const normalizedSearch =
+        promiseSearchTerm
+          .trim()
+          .toLowerCase();
+
+
+      if (normalizedSearch === "") {
+
+        return orderedPromises;
+      }
+
+
+      return orderedPromises.filter(
+        (item) => {
+
+          const searchableValues = [
+            item.paymentId,
+            item.customerId,
+            item.promise?.promiseStatus,
+            item.promise?.language,
+            item.promise?.conversationSummary,
+            item.promise?.promisedAmount,
+            item.promise?.promisedDate
+          ];
+
+
+          return searchableValues.some(
+            (value) =>
+              String(value ?? "")
+                .toLowerCase()
+                .includes(
+                  normalizedSearch
+                )
+          );
+        }
+      );
+
+    }, [
+      orderedPromises,
+      promiseSearchTerm
+    ]);
+
+
+  const promiseTotalPages =
+    Math.max(
+      1,
+      Math.ceil(
+        filteredPromises.length /
+        PROMISES_PER_PAGE
+      )
+    );
+
+
+  useEffect(() => {
+
+    setPromisePage(1);
+
+  }, [promiseSearchTerm]);
+
+
+  useEffect(() => {
+
+    if (
+      promisePage >
+      promiseTotalPages
+    ) {
+
+      setPromisePage(
+        promiseTotalPages
+      );
+    }
+
+  }, [
+    promisePage,
+    promiseTotalPages
+  ]);
+
+
+  const paginatedPromises =
+    useMemo(() => {
+
+      const startIndex =
+        (promisePage - 1) *
+        PROMISES_PER_PAGE;
+
+      return filteredPromises.slice(
+        startIndex,
+        startIndex +
+        PROMISES_PER_PAGE
+      );
+
+    }, [
+      filteredPromises,
+      promisePage
+    ]);
+
+
+  const firstVisiblePromise =
+    filteredPromises.length === 0
+
+      ? 0
+
+      : (
+          (promisePage - 1) *
+          PROMISES_PER_PAGE
+        ) + 1;
+
+
+  const lastVisiblePromise =
+    Math.min(
+      promisePage *
+      PROMISES_PER_PAGE,
+      filteredPromises.length
+    );
+
+
+  const promisePaginationItems =
+    useMemo(() => {
+
+      if (
+        promiseTotalPages <= 7
+      ) {
+
+        return Array.from(
+          {
+            length:
+              promiseTotalPages
+          },
+          (_, index) =>
+            index + 1
+        );
+      }
+
+
+      const items = [1];
+
+      const windowStart =
+        Math.max(
+          2,
+          promisePage - 1
+        );
+
+      const windowEnd =
+        Math.min(
+          promiseTotalPages - 1,
+          promisePage + 1
+        );
+
+
+      if (windowStart > 2) {
+
+        items.push(
+          "start-ellipsis"
+        );
+      }
+
+
+      for (
+        let page = windowStart;
+        page <= windowEnd;
+        page += 1
+      ) {
+
+        items.push(page);
+      }
+
+
+      if (
+        windowEnd <
+        promiseTotalPages - 1
+      ) {
+
+        items.push(
+          "end-ellipsis"
+        );
+      }
+
+
+      items.push(
+        promiseTotalPages
+      );
+
+      return items;
+
+    }, [
+      promisePage,
+      promiseTotalPages
+    ]);
+
+
+  return (
+    <section className="page-section promise-page">
+
+      <section className="metrics-grid promise-metrics">
+  <MetricCard
+    icon={<Activity />}
+    label="Active Promises"
+    value={activePromises.length}
+  />
+
+  <MetricCard
+    icon={<CircleDollarSign />}
+    label="Active Promise Value"
+    value={formatMoney(totalPromisedAmount)}
+  />
+
+  <MetricCard
+    icon={<Clock3 />}
+    label="Due / Broken"
+    value={
+      <span className="promise-status-metric">
+
+        <span className="promise-status-metric-item">
+          <strong className="metric-warning-value">
+            {duePromises.length}
+          </strong>
+          <small>Due</small>
+        </span>
+
+        <span className="metric-slash">
+          /
+        </span>
+
+        <span className="promise-status-metric-item">
+          <strong className="metric-danger-value">
+            {brokenPromises.length}
+          </strong>
+          <small>Broken</small>
+        </span>
+
+      </span>
+    }
+  />
+
+  <MetricCard
+    icon={<CheckCircle2 />}
+    label="Promises Kept"
+    value={keptPromises.length}
+  />
+</section>
+
+      <section className="panel promise-table-panel">
+        <div className="panel-header promise-panel-header">
+
+          <div>
+
+            <h3>
+              Promise-to-Pay Commitments
+            </h3>
+
+            <p>
+              Customer commitments and their current lifecycle status
+            </p>
+
+          </div>
+
+
+          <span className="case-count">
+
+            {filteredPromises.length}
+
+            {promiseSearchTerm.trim() !== ""
+              ? ` of ${orderedPromises.length} commitments`
+              : " commitments"}
+
+          </span>
+
+        </div>
+
+        <div className="section-search-row">
+          <input
+            className="cases-search section-search-input"
+            type="search"
+            value={promiseSearchTerm}
+            placeholder="Search payment, customer, status or language..."
+            aria-label="Search Promise-to-Pay commitments"
+            onChange={(event) =>
+              setPromiseSearchTerm(
+                event.target.value
+              )
+            }
+          />
+
+          {promiseSearchTerm.trim() !== "" && (
+            <button
+              type="button"
+              className="clear-filters-button section-search-clear"
+              onClick={() =>
+                setPromiseSearchTerm("")
+              }
+            >
+              Clear search
+            </button>
+          )}
+        </div>
+
+        {promises.length === 0 ? (
+          <div className="blocked-action-message">
+            <Clock3 size={17} />
+            No Promise-to-Pay commitments have been captured yet.
+          </div>
+        ) : filteredPromises.length === 0 ? (
+          <div className="empty-filter-state promise-search-empty">
+            No commitments match “{promiseSearchTerm.trim()}”.
+          </div>
+        ) : (
+          <div className="table-container promise-table-container">
+            <table className="promise-table">
+              <thead>
+                <tr>
+                  <th className="promise-toggle-column"></th>
+                  <th>Payment</th>
+                  <th>Amount</th>
+                  <th>Promised Date</th>
+                  <th>Language</th>
+                  <th>Analysis Confidence</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {paginatedPromises.map((item) => {
+                  const isExpanded = expandedPromiseId === item.paymentId;
+                  const confidence = item.promise?.confidence != null
+                    ? Math.round(Number(item.promise.confidence) * 100)
+                    : null;
+
+                  return (
+                    <Fragment key={item.paymentId}>
+                      <tr
+                        className={`promise-row ${isExpanded ? "expanded" : ""}`}
+                        onClick={() =>
+                          setExpandedPromiseId(
+                            isExpanded ? null : item.paymentId
+                          )
+                        }
+                      >
+                        <td className="promise-toggle-cell">
+                          <button
+                            className="promise-expand-button"
+                            type="button"
+                            aria-label={isExpanded ? "Collapse promise" : "Expand promise"}
+                            aria-expanded={isExpanded}
+                            onClick={(event) => {
+                              event.stopPropagation();
+
+                              setExpandedPromiseId(
+                                isExpanded
+                                  ? null
+                                  : item.paymentId
+                              );
+                            }}
+                          >
+                            {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                          </button>
+                        </td>
+
+                        <td>
+                          <div className="case-main">
+                            <strong>{item.paymentId}</strong>
+                            <span>{item.customerId}</span>
+                          </div>
+                        </td>
+
+                        <td className="money-cell">
+                          {formatMoney(item.promise?.promisedAmount || 0)}
+                        </td>
+
+                        <td>
+                          {item.promise?.promisedDate
+                            ? formatPromiseDate(item.promise.promisedDate)
+                            : "No date captured"}
+                        </td>
+
+                        <td>
+                          {formatAction(item.promise?.language || "unknown")}
+                        </td>
+
+                        <td>
+                          <div className="confidence-cell">
+                            <span>{confidence != null ? `${confidence}%` : "—"}</span>
+                            <div className="confidence-track">
+                              <span style={{ width: `${confidence || 0}%` }}></span>
+                            </div>
+                          </div>
+                        </td>
+
+                        <td>
+                          <StatusBadge status={item.promise?.promiseStatus || "UNKNOWN"} />
+                        </td>
+                      </tr>
+
+                      {isExpanded && (
+                        <tr className="promise-expanded-row">
+                          <td colSpan="7">
+                            <div className="promise-expanded-card">
+                              <div className="promise-summary-grid">
+                                <div className="promise-customer-block">
+                                  <div className="promise-avatar">
+                                    <UserRound size={20} />
+                                  </div>
+                                  <div>
+                                    <span>Customer</span>
+                                    <strong>{item.customerId}</strong>
+                                    <small>{item.paymentId}</small>
+                                  </div>
+                                </div>
+
+                                <DetailItem
+                                  label="Promised Amount"
+                                  value={formatMoney(item.promise?.promisedAmount || 0)}
+                                />
+
+                                <DetailItem
+                                  label="Promised Date"
+                                  value={
+                                    item.promise?.promisedDate
+                                      ? formatPromiseDate(item.promise.promisedDate)
+                                      : "No date captured"
+                                  }
+                                />
+
+                                <DetailItem
+                                  label="Language"
+                                  value={formatAction(item.promise?.language || "unknown")}
+                                />
+
+                                <DetailItem
+                                  label="Analysis Confidence"
+                                  value={confidence != null ? `${confidence}%` : "—"}
+                                />
+                              </div>
+
+                              <div className="promise-conversation-box">
+                                <div className="promise-conversation-title">
+                                  <MessageSquare size={15} />
+                                  Conversation Summary
+                                </div>
+                                <p>
+                                  {item.promise?.conversationSummary ||
+                                    "No conversation summary available."}
+                                </p>
+                              </div>
+
+                              <div className="promise-expanded-footer">
+                                <div>
+                                  <CalendarDays size={14} />
+                                  Commitment captured by RecoverAI
+                                </div>
+
+                                {item.promise?.promiseStatus === "BROKEN" && (
+                                  <button
+                                    className="secondary-button"
+                                    type="button"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      setSelectedPaymentId(item.paymentId);
+                                    }}
+                                  >
+                                    <Play size={15} />
+                                    Open Recovery Case
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+
+        {
+          filteredPromises.length > 0
+          &&
+          (
+            <div className="cases-pagination promise-pagination">
+
+              <div className="pagination-summary">
+
+                Showing{" "}
+
+                <strong>
+                  {firstVisiblePromise}
+                </strong>
+
+                {" to "}
+
+                <strong>
+                  {lastVisiblePromise}
+                </strong>
+
+                {" of "}
+
+                <strong>
+                  {filteredPromises.length}
+                </strong>
+
+                {promiseSearchTerm.trim() !== ""
+                  ? ` matching of ${orderedPromises.length} commitments`
+                  : " commitments"}
+
+              </div>
+
+
+              <div
+                className="pagination-controls"
+                aria-label="Promise commitments pagination"
+              >
+
+                <button
+                  type="button"
+                  className="pagination-arrow"
+                  aria-label="Previous promises page"
+                  disabled={
+                    promisePage === 1
+                  }
+                  onClick={() =>
+                    setPromisePage(
+                      (page) =>
+                        Math.max(
+                          1,
+                          page - 1
+                        )
+                    )
+                  }
+                >
+                  ‹
+                </button>
+
+
+                {
+                  promisePaginationItems.map(
+                    (item) => {
+
+                      if (
+                        typeof item !==
+                        "number"
+                      ) {
+
+                        return (
+                          <span
+                            key={item}
+                            className="pagination-ellipsis"
+                          >
+                            …
+                          </span>
+                        );
+                      }
+
+
+                      return (
+                        <button
+                          key={item}
+                          type="button"
+                          className={
+                            `pagination-page ${
+                              promisePage === item
+                                ? "active"
+                                : ""
+                            }`
+                          }
+                          aria-current={
+                            promisePage === item
+                              ? "page"
+                              : undefined
+                          }
+                          onClick={() => {
+
+                            setPromisePage(
+                              item
+                            );
+
+                            setExpandedPromiseId(
+                              null
+                            );
+                          }}
+                        >
+                          {item}
+                        </button>
+                      );
+                    }
+                  )
+                }
+
+
+                <button
+                  type="button"
+                  className="pagination-arrow"
+                  aria-label="Next promises page"
+                  disabled={
+                    promisePage ===
+                    promiseTotalPages
+                  }
+                  onClick={() =>
+                    setPromisePage(
+                      (page) =>
+                        Math.min(
+                          promiseTotalPages,
+                          page + 1
+                        )
+                    )
+                  }
+                >
+                  ›
+                </button>
+
+              </div>
+
+            </div>
+          )
+        }
+
+      </section>
+
+      {selectedRecoveryCase && (
+        <CaseDetailPanel
+          payment={selectedRecoveryCase}
+          onClose={() => setSelectedPaymentId(null)}
+          refreshData={refreshData}
+        />
+      )}
+    </section>
+  );
+}
+
 
 // ======================================================
 // ANALYTICS
@@ -2907,8 +5813,37 @@ function AnalyticsPage({
   summary,
   batchEvaluation,
   batchError,
-  refreshBatch
+  theme
 }) {
+
+  const chartText =
+  theme === "dark"
+    ? "#697386"
+    : "#64748b";
+
+
+const chartGrid =
+  theme === "dark"
+    ? "#242b38"
+    : "#e2e8f0";
+
+
+const tooltipBackground =
+  theme === "dark"
+    ? "#141923"
+    : "#ffffff";
+
+
+const tooltipBorder =
+  theme === "dark"
+    ? "#334155"
+    : "#e2e8f0";
+
+
+const tooltipText =
+  theme === "dark"
+    ? "#f8fafc"
+    : "#0f172a";
 
   const strategyData =
     Object.entries(
@@ -3006,29 +5941,32 @@ function AnalyticsPage({
 
     <>
 
-      <section className="analytics-section-heading">
+      <section className="analytics-section-heading analytics-live-heading">
 
-        <div>
+        <div className="analytics-heading-copy">
 
-          <p className="eyebrow">
-            LIVE RECOVERY EVIDENCE
-          </p>
+          <div className="analytics-heading-title-row">
 
-          <h2>
-            Live Agent Performance
-          </h2>
+            <span className="analytics-heading-icon">
+              <Activity size={17} />
+            </span>
+
+            <h2>
+              Live Recovery Performance
+            </h2>
+
+            <span className="analytics-mode-badge live">
+              Live
+            </span>
+
+          </div>
 
           <p>
-            Results from cases actually processed by RecoverAI.
-            Razorpay-confirmed Test Mode recovery is kept separate
-            from simulated outcomes.
+            Actual RecoverAI case outcomes, with Razorpay-confirmed
+            Test Mode recoveries separated from simulated results.
           </p>
 
         </div>
-
-        <span className="analytics-mode-badge live">
-          Live State
-        </span>
 
       </section>
 
@@ -3095,12 +6033,12 @@ function AnalyticsPage({
           <div>
 
             <h3>
-              Live Strategy Success Rates
+              Live Recovery Conversion by Action
             </h3>
 
             <p>
-              Performance based only on recovery actions
-              that were actually executed
+              Share of executed actions whose cases currently reached
+              a recovered outcome
             </p>
 
           </div>
@@ -3120,26 +6058,88 @@ function AnalyticsPage({
             >
 
               <XAxis
-                dataKey="action"
-                tick={{
-                  fontSize: 12
-                }}
-              />
+  dataKey="action"
 
-              <YAxis
-                domain={[
-                  0,
-                  100
-                ]}
-              />
+  tick={{
+    fontSize: 11,
+    fill: chartText
+  }}
 
-              <Tooltip />
+  axisLine={{
+    stroke: chartGrid
+  }}
 
-              <Bar
-                dataKey="successRate"
-                radius={[8, 8, 0, 0]}
-                fill="#7f56d9"
-              />
+  tickLine={false}
+/>
+
+
+<YAxis
+  domain={[
+    0,
+    100
+  ]}
+
+  tick={{
+    fontSize: 11,
+    fill: chartText
+  }}
+
+  axisLine={false}
+
+  tickLine={false}
+/>
+
+
+<Tooltip
+  contentStyle={{
+    backgroundColor:
+      tooltipBackground,
+
+    border:
+      `1px solid ${tooltipBorder}`,
+
+    borderRadius:
+      "8px",
+
+    color:
+      tooltipText,
+
+    fontSize:
+      "12px"
+  }}
+
+  labelStyle={{
+    color:
+      tooltipText
+  }}
+
+  cursor={{
+    fill:
+      theme === "dark"
+        ? "rgba(37, 99, 255, 0.05)"
+        : "rgba(37, 99, 235, 0.05)"
+  }}
+/>
+
+
+<Bar
+  dataKey="successRate"
+
+  maxBarSize={58}
+
+  radius={[
+    6,
+    6,
+    0,
+    0
+  ]}
+
+  fill={
+    theme === "dark"
+      ? "#2563ff"
+      : "#2563eb"
+  }
+/>
 
             </BarChart>
 
@@ -3218,42 +6218,33 @@ function AnalyticsPage({
 
       <section className="batch-evaluation-section">
 
-        <div className="batch-evaluation-header">
+        <div className="batch-evaluation-header analytics-benchmark-heading">
 
-          <div>
+          <div className="analytics-heading-copy">
 
-            <p className="eyebrow">
-              SAFE SYNTHETIC BENCHMARK
-            </p>
+            <div className="analytics-heading-title-row">
 
-            <h2>
-              50-Payment Batch Evaluation
-            </h2>
+              <span className="analytics-heading-icon benchmark">
+                <BarChart3 size={17} />
+              </span>
+
+              <h2>
+                50-Payment Batch Evaluation
+              </h2>
+
+              <span className="analytics-mode-badge synthetic">
+                Benchmark
+              </span>
+
+            </div>
 
             <p>
-              A fixed, deterministic benchmark used to evaluate
-              RecoverAI across a larger batch without creating
-              Razorpay links, calling Gemini, or modifying recovery state.
+              Fixed synthetic evaluation for comparing recovery strategies
+              without presenting projected results as live merchant performance.
             </p>
 
           </div>
 
-
-          <div className="batch-header-actions">
-
-            <span className="analytics-mode-badge synthetic">
-              Projected Results
-            </span>
-
-            <button
-              className="batch-refresh-button"
-              onClick={refreshBatch}
-            >
-              <RefreshCcw size={15} />
-              Refresh Benchmark
-            </button>
-
-          </div>
 
         </div>
 
@@ -3290,19 +6281,22 @@ function AnalyticsPage({
           (
             <>
 
-              <div className="batch-safety-banner">
+              <div
+                className="batch-safety-banner"
+                title="This benchmark does not call Gemini, create Razorpay links, or modify live recovery records."
+              >
 
                 <ShieldCheck size={20} />
 
                 <div>
 
                   <strong>
-                    Side-effect-free evaluation
+                    Safe benchmark mode
                   </strong>
 
                   <p>
-                    0 Gemini calls · 0 Razorpay links ·
-                    0 recovery-state mutations
+                    No Gemini calls · No Razorpay links ·
+                    no live recovery records changed
                   </p>
 
                 </div>
@@ -3431,7 +6425,7 @@ function AnalyticsPage({
                       </h3>
 
                       <p>
-                        Rule engine versus offline AI evaluation fixture
+                        How benchmark cases were routed
                       </p>
                     </div>
 
@@ -3465,7 +6459,7 @@ function AnalyticsPage({
                     </div>
 
                     <div>
-                      <span>AI Evaluation Fixture</span>
+                      <span>AI-Assisted Evaluation</span>
                       <strong>
                         {
                           batchMetrics
@@ -3492,7 +6486,7 @@ function AnalyticsPage({
                     </h3>
 
                     <p>
-                      Deterministic synthetic success rate by intervention
+                      Projected success rate by recovery strategy
                     </p>
                   </div>
 
@@ -3513,20 +6507,51 @@ function AnalyticsPage({
                       <XAxis
                         dataKey="action"
                         tick={{
-                          fontSize: 12
+                          fontSize: 11,
+                          fill: chartText
                         }}
+                        axisLine={{
+                          stroke: chartGrid
+                        }}
+                        tickLine={false}
                       />
 
                       <YAxis
                         domain={[0, 100]}
+                        tick={{
+                          fontSize: 11,
+                          fill: chartText
+                        }}
+                        axisLine={false}
+                        tickLine={false}
                       />
 
-                      <Tooltip />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: tooltipBackground,
+                          border: `1px solid ${tooltipBorder}`,
+                          borderRadius: "8px",
+                          color: tooltipText,
+                          fontSize: "12px"
+                        }}
+                        labelStyle={{
+                          color: tooltipText
+                        }}
+                        cursor={{
+                          fill: theme === "dark"
+                            ? "rgba(37, 99, 255, 0.05)"
+                            : "rgba(37, 99, 235, 0.05)"
+                        }}
+                      />
 
                       <Bar
                         dataKey="successRate"
-                        radius={[8, 8, 0, 0]}
-                        fill="#475467"
+                        radius={[6, 6, 0, 0]}
+                        fill={
+                          theme === "dark"
+                            ? "#2563ff"
+                            : "#2563eb"
+                        }
                       />
 
                     </BarChart>
@@ -3630,16 +6655,277 @@ function AuditPage({
   auditLogs
 }) {
 
-  const latestLogs = [
-    ...auditLogs
-  ].reverse();
+  const AUDIT_EVENTS_PER_PAGE = 10;
+
+
+  const [
+    auditPage,
+    setAuditPage
+  ] = useState(1);
+
+
+  const [
+    auditSearchTerm,
+    setAuditSearchTerm
+  ] = useState("");
+
+
+  const latestLogs =
+    useMemo(
+      () => [
+        ...auditLogs
+      ].reverse(),
+      [auditLogs]
+    );
+
+
+  const filteredAuditLogs =
+    useMemo(() => {
+
+      const normalizedSearch =
+        auditSearchTerm
+          .trim()
+          .toLowerCase();
+
+
+      if (normalizedSearch === "") {
+
+        return latestLogs;
+      }
+
+
+      return latestLogs.filter(
+        (log) => {
+
+          const searchableValues = [
+            log.paymentId,
+            log.event,
+            log.outcome,
+            log.recoveryAction,
+            log.actionMessage,
+            log.explanation,
+            log.razorpay?.razorpayPaymentId,
+            log.razorpayPaymentId,
+            log.timestamp
+          ];
+
+
+          return searchableValues.some(
+            (value) =>
+              String(value ?? "")
+                .toLowerCase()
+                .includes(
+                  normalizedSearch
+                )
+          );
+        }
+      );
+
+    }, [
+      latestLogs,
+      auditSearchTerm
+    ]);
+
+
+  const auditTotalPages =
+    Math.max(
+      1,
+      Math.ceil(
+        filteredAuditLogs.length /
+        AUDIT_EVENTS_PER_PAGE
+      )
+    );
+
+
+  useEffect(() => {
+
+    setAuditPage(1);
+
+  }, [auditSearchTerm]);
+
+
+  useEffect(() => {
+
+    if (
+      auditPage >
+      auditTotalPages
+    ) {
+
+      setAuditPage(
+        auditTotalPages
+      );
+    }
+
+  }, [
+    auditPage,
+    auditTotalPages
+  ]);
+
+
+  const paginatedAuditLogs =
+    useMemo(() => {
+
+      const startIndex =
+        (auditPage - 1) *
+        AUDIT_EVENTS_PER_PAGE;
+
+      return filteredAuditLogs.slice(
+        startIndex,
+        startIndex +
+        AUDIT_EVENTS_PER_PAGE
+      );
+
+    }, [
+      filteredAuditLogs,
+      auditPage
+    ]);
+
+
+  const firstVisibleAudit =
+    filteredAuditLogs.length === 0
+
+      ? 0
+
+      : (
+          (auditPage - 1) *
+          AUDIT_EVENTS_PER_PAGE
+        ) + 1;
+
+
+  const lastVisibleAudit =
+    Math.min(
+      auditPage *
+      AUDIT_EVENTS_PER_PAGE,
+      filteredAuditLogs.length
+    );
+
+
+  const auditPaginationItems =
+    useMemo(() => {
+
+      if (
+        auditTotalPages <= 7
+      ) {
+
+        return Array.from(
+          {
+            length:
+              auditTotalPages
+          },
+          (_, index) =>
+            index + 1
+        );
+      }
+
+
+      const items = [1];
+
+      const windowStart =
+        Math.max(
+          2,
+          auditPage - 1
+        );
+
+      const windowEnd =
+        Math.min(
+          auditTotalPages - 1,
+          auditPage + 1
+        );
+
+
+      if (windowStart > 2) {
+
+        items.push(
+          "start-ellipsis"
+        );
+      }
+
+
+      for (
+        let page = windowStart;
+        page <= windowEnd;
+        page += 1
+      ) {
+
+        items.push(page);
+      }
+
+
+      if (
+        windowEnd <
+        auditTotalPages - 1
+      ) {
+
+        items.push(
+          "end-ellipsis"
+        );
+      }
+
+
+      items.push(
+        auditTotalPages
+      );
+
+      return items;
+
+    }, [
+      auditPage,
+      auditTotalPages
+    ]);
+
+
+  /*
+    Audit cards should describe what actually happened.
+
+    A payment-confirmed event must not continue showing the
+    earlier recovery instruction (for example, "Send Alternative
+    Payment Method"). That instruction belonged to a previous
+    audit event, not the confirmation event itself.
+  */
+
+  const getAuditActionLabel =
+    (log) => {
+
+      switch (
+        log.event
+      ) {
+
+        case "RAZORPAY_PAYMENT_CONFIRMED":
+          return "Payment confirmed by Razorpay";
+
+        case "RECOVERY_PROCESSED":
+          return log.recoveryAction
+
+            ? formatAction(
+                log.recoveryAction
+              )
+
+            : "Recovery processed";
+
+        case "PROMISE_CREATED":
+          return "Promise to Pay recorded";
+
+        case "CALLBACK_REQUESTED":
+          return "Callback request recorded";
+
+        case "PAYMENT_ALREADY_MADE":
+          return "Payment verification requested";
+
+        default:
+          return formatAction(
+            log.event ||
+            log.recoveryAction ||
+            "Audit event"
+          );
+      }
+    };
 
 
   return (
 
-    <section className="panel">
+    <section className="panel audit-panel">
 
-      <div className="panel-header">
+      <div className="panel-header audit-panel-header">
 
         <div>
 
@@ -3648,8 +6934,8 @@ function AuditPage({
           </h3>
 
           <p>
-            Complete trace of agent
-            decisions and outcomes
+            Complete trace of agent decisions,
+            actions and outcomes
           </p>
 
         </div>
@@ -3658,23 +6944,58 @@ function AuditPage({
         <span className="case-count">
 
           {
-            auditLogs.length
-          } events
+            filteredAuditLogs.length
+          }
+
+          {auditSearchTerm.trim() !== ""
+            ? ` of ${auditLogs.length} events`
+            : " events"}
 
         </span>
 
       </div>
 
 
+      <div className="section-search-row audit-search-row">
+        <input
+          className="cases-search section-search-input"
+          type="search"
+          value={auditSearchTerm}
+          placeholder="Search payment ID, event, outcome or Razorpay ID..."
+          aria-label="Search audit trail"
+          onChange={(event) =>
+            setAuditSearchTerm(
+              event.target.value
+            )
+          }
+        />
+
+        {auditSearchTerm.trim() !== "" && (
+          <button
+            type="button"
+            className="clear-filters-button section-search-clear"
+            onClick={() =>
+              setAuditSearchTerm("")
+            }
+          >
+            Clear search
+          </button>
+        )}
+      </div>
+
+
       <div className="audit-list">
 
         {
-          latestLogs.map(
+          paginatedAuditLogs.length > 0
+
+            ?
+
+          paginatedAuditLogs.map(
             (log) => (
 
-              <div
+              <article
                 className="audit-item"
-
                 key={
                   log._id
                 }
@@ -3702,28 +7023,13 @@ function AuditPage({
                 </div>
 
 
-                <div className="audit-content">
+                <div className="audit-event-main">
 
-                  <div className="audit-heading">
+                  <div className="audit-payment-row">
 
-                    <div>
-
-                      <strong>
-                        {log.paymentId}
-                      </strong>
-
-                      <span>
-
-                        {
-                          formatAction(
-                            log.event
-                          )
-                        }
-
-                      </span>
-
-                    </div>
-
+                    <strong>
+                      {log.paymentId}
+                    </strong>
 
                     <StatusBadge
                       status={
@@ -3734,68 +7040,255 @@ function AuditPage({
                   </div>
 
 
+                  <span className="audit-event-type">
+
+                    {
+                      formatAction(
+                        log.event
+                      )
+                    }
+
+                  </span>
+
+                </div>
+
+
+                <div className="audit-event-description">
+
                   <p className="audit-message">
 
                     {
                       log.actionMessage ||
-                      log.explanation
+                      log.explanation ||
+                      "Recovery event recorded."
                     }
 
                   </p>
 
 
-                  <div className="audit-meta">
-
-                    <span>
-
-                      {
-                        formatAction(
-                          log.recoveryAction
-                        )
-                      }
-
-                    </span>
+                </div>
 
 
-                    <span>
+                <div className="audit-action-field">
 
-                      {
-                        formatDate(
-                          log.timestamp
-                        )
-                      }
+                  <span className="audit-field-label">
+                    Action taken
+                  </span>
 
-                    </span>
-
+                  <strong>
 
                     {
-                      log.razorpay
-                        ?.razorpayPaymentId
-                      &&
-                      (
-                        <span>
-
-                          {
-                            log
-                              .razorpay
-                              .razorpayPaymentId
-                          }
-
-                        </span>
+                      getAuditActionLabel(
+                        log
                       )
                     }
 
-                  </div>
+                  </strong>
 
                 </div>
 
-              </div>
+
+                <div className="audit-event-meta">
+
+                  <span className="audit-field-label">
+                    Recorded at
+                  </span>
+
+                  <strong className="audit-time">
+
+                    {
+                      formatDate(
+                        log.timestamp
+                      )
+                    }
+
+                  </strong>
+
+
+                  {
+                    log.razorpay
+                      ?.razorpayPaymentId
+                    &&
+                    (
+                      <span className="audit-razorpay-id">
+
+                        {
+                          log
+                            .razorpay
+                            .razorpayPaymentId
+                        }
+
+                      </span>
+                    )
+                  }
+
+                </div>
+
+              </article>
 
             )
           )
+
+            :
+
+            (
+              <div className="audit-empty-state">
+                <ShieldCheck size={18} />
+
+                <div>
+                  <strong>
+                    {auditSearchTerm.trim() !== ""
+                      ? "No matching audit events"
+                      : "No audit events yet"}
+                  </strong>
+                  <p>
+                    {auditSearchTerm.trim() !== ""
+                      ? `No audit events match “${auditSearchTerm.trim()}”.`
+                      : "Recovery decisions and state transitions will appear here once cases are processed."}
+                  </p>
+                </div>
+              </div>
+            )
         }
 
       </div>
+
+
+      {
+        filteredAuditLogs.length > 0
+        &&
+        (
+          <div className="cases-pagination audit-pagination">
+
+            <div className="pagination-summary">
+
+              Showing{" "}
+
+              <strong>
+                {firstVisibleAudit}
+              </strong>
+
+              {" to "}
+
+              <strong>
+                {lastVisibleAudit}
+              </strong>
+
+              {" of "}
+
+              <strong>
+                {filteredAuditLogs.length}
+              </strong>
+
+              {auditSearchTerm.trim() !== ""
+                ? ` matching of ${latestLogs.length} events`
+                : " events"}
+
+            </div>
+
+
+            <div
+              className="pagination-controls"
+              aria-label="Audit timeline pagination"
+            >
+
+              <button
+                type="button"
+                className="pagination-arrow"
+                aria-label="Previous audit page"
+                disabled={
+                  auditPage === 1
+                }
+                onClick={() =>
+                  setAuditPage(
+                    (page) =>
+                      Math.max(
+                        1,
+                        page - 1
+                      )
+                  )
+                }
+              >
+                ‹
+              </button>
+
+
+              {
+                auditPaginationItems.map(
+                  (item) => {
+
+                    if (
+                      typeof item !==
+                      "number"
+                    ) {
+
+                      return (
+                        <span
+                          key={item}
+                          className="pagination-ellipsis"
+                        >
+                          …
+                        </span>
+                      );
+                    }
+
+
+                    return (
+                      <button
+                        key={item}
+                        type="button"
+                        className={
+                          `pagination-page ${
+                            auditPage === item
+                              ? "active"
+                              : ""
+                          }`
+                        }
+                        aria-current={
+                          auditPage === item
+                            ? "page"
+                            : undefined
+                        }
+                        onClick={() =>
+                          setAuditPage(
+                            item
+                          )
+                        }
+                      >
+                        {item}
+                      </button>
+                    );
+                  }
+                )
+              }
+
+
+              <button
+                type="button"
+                className="pagination-arrow"
+                aria-label="Next audit page"
+                disabled={
+                  auditPage ===
+                  auditTotalPages
+                }
+                onClick={() =>
+                  setAuditPage(
+                    (page) =>
+                      Math.min(
+                        auditTotalPages,
+                        page + 1
+                      )
+                  )
+                }
+              >
+                ›
+              </button>
+
+            </div>
+
+          </div>
+        )
+      }
 
     </section>
   );
@@ -3807,8 +7300,38 @@ function AuditPage({
 // ======================================================
 
 function StrategyChart({
-  strategyData
+  strategyData,
+  theme
 }) {
+
+  const chartText =
+  theme === "dark"
+    ? "#697386"
+    : "#64748b";
+
+
+const chartGrid =
+  theme === "dark"
+    ? "#242b38"
+    : "#e2e8f0";
+
+
+const tooltipBackground =
+  theme === "dark"
+    ? "#141923"
+    : "#ffffff";
+
+
+const tooltipBorder =
+  theme === "dark"
+    ? "#334155"
+    : "#e2e8f0";
+
+
+const tooltipText =
+  theme === "dark"
+    ? "#f8fafc"
+    : "#0f172a";
 
   return (
 
@@ -3819,12 +7342,11 @@ function StrategyChart({
         <div>
 
           <h3>
-            Strategy Performance
+            Recovery Strategy Outcomes
           </h3>
 
           <p>
-            Recovery success rate
-            by intervention
+            Current recovery conversion after each executed action
           </p>
 
         </div>
@@ -3841,40 +7363,79 @@ function StrategyChart({
 
           <BarChart
             data={strategyData}
+            margin={{
+              top: 8,
+              right: 12,
+              left: 4,
+              bottom: 18
+            }}
+            barCategoryGap="34%"
           >
 
             <XAxis
-
               dataKey="action"
-
+              interval={0}
+              height={54}
+              tickMargin={13}
               tick={{
-                fontSize: 11
+                fontSize: 12,
+                fill: chartText
               }}
+              axisLine={{
+                stroke: chartGrid
+              }}
+              tickLine={false}
             />
-
 
             <YAxis
               domain={[
                 0,
                 100
               ]}
+              tick={{
+                fontSize: 12,
+                fill: chartText
+              }}
+              axisLine={false}
+              tickLine={false}
             />
 
-
-            <Tooltip />
+            <Tooltip
+              contentStyle={{
+                backgroundColor: tooltipBackground,
+                border: `1px solid ${tooltipBorder}`,
+                borderRadius: "8px",
+                color: tooltipText,
+                fontSize: "12px"
+              }}
+              labelStyle={{
+                color: tooltipText
+              }}
+              cursor={{
+                fill: theme === "dark"
+                  ? "rgba(37, 99, 255, 0.05)"
+                  : "rgba(37, 99, 235, 0.05)"
+              }}
+            />
 
 
             <Bar
 
-              dataKey="successRate"
+  dataKey="successRate"
 
-              radius={[
-                8,
-                8,
-                0,
-                0
-              ]}
-            />
+  radius={[
+    6,
+    6,
+    0,
+    0
+  ]}
+
+  fill={
+    theme === "dark"
+      ? "#2563ff"
+      : "#2563eb"
+  }
+/>
 
           </BarChart>
 
@@ -3926,7 +7487,7 @@ function RecoveryStateTable({
             </th>
 
             <th>
-              Razorpay
+              Payment Link
             </th>
 
           </tr>
@@ -3937,7 +7498,11 @@ function RecoveryStateTable({
         <tbody>
 
           {
-            states.map(
+            states.length > 0
+
+              ?
+
+              states.map(
               (state) => (
 
                 <tr
@@ -3978,8 +7543,8 @@ function RecoveryStateTable({
                   <td>
 
                     {
-                      state.recoveryAttempts ||
-                      "-"
+                      state.recoveryAttempts ??
+                      0
                     }
 
                   </td>
@@ -4035,6 +7600,19 @@ function RecoveryStateTable({
 
               )
             )
+
+              :
+
+              (
+                <tr>
+                  <td
+                    colSpan="6"
+                    className="empty-filter-state"
+                  >
+                    No recovery states have been recorded yet.
+                  </td>
+                </tr>
+              )
           }
 
         </tbody>
@@ -4059,7 +7637,7 @@ function MetricCard({
 
   return (
 
-    <div className="metric-card">
+    <div className="metric-card" data-label={label}>
 
       <div className="metric-top">
 
@@ -4126,7 +7704,10 @@ function FormField({
   name,
   value,
   onChange,
-  type = "text"
+  type = "text",
+  disabled = false,
+  min,
+  step
 }) {
 
   return (
@@ -4147,6 +7728,9 @@ function FormField({
         value={value}
 
         onChange={onChange}
+        disabled={disabled}
+        min={min}
+        step={step}
       />
 
     </label>
@@ -4163,7 +7747,8 @@ function SelectField({
   name,
   value,
   onChange,
-  options
+  options,
+  disabled = false
 }) {
 
   return (
@@ -4182,6 +7767,7 @@ function SelectField({
         value={value}
 
         onChange={onChange}
+        disabled={disabled}
       >
 
         {
@@ -4238,6 +7824,8 @@ function StatusBadge({
         `status-badge ${className}`
       }
     >
+
+      <span className="status-badge-dot" aria-hidden="true"></span>
 
       {
         status
@@ -4309,6 +7897,15 @@ function shortActionName(
     RETRY:
       "Retry",
 
+    CREATE_PROMISE_TO_PAY:
+      "Promise to Pay",
+
+    START_CONVERSATIONAL_RECOVERY:
+      "Conversation",
+
+    SCHEDULE_CALLBACK:
+      "Callback",
+
     REMIND_LATER:
       "Remind Later",
 
@@ -4348,6 +7945,27 @@ function formatDate(
     date
   ).toLocaleString(
     "en-IN"
+  );
+}
+
+function formatPromiseDate(
+  date
+) {
+
+  if (!date) {
+    return "No date captured";
+  }
+
+  return new Date(
+    date
+  ).toLocaleDateString(
+    "en-IN",
+    {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      timeZone: "UTC"
+    }
   );
 }
 
