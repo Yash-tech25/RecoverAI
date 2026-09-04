@@ -1,30 +1,36 @@
 # RecoverAI
 
-**Autonomous Revenue Recovery Agent for Failed Payments**
+**Bounded, multi-channel agentic revenue recovery for failed payments**
 
-RecoverAI is an AI-assisted revenue recovery system built for the **Razorpay AI Buildathon – Revenue Recovery track**.
+RecoverAI is an AI-assisted revenue recovery system built for the **Razorpay AI Buildathon — Revenue Recovery track**.
 
-It detects failed or abandoned payments, selects an appropriate recovery strategy, applies policy guardrails, executes bounded recovery actions, tracks outcomes, and measures recovery performance.
+Instead of applying the same retry strategy to every failed payment, RecoverAI uses payment context, deterministic rules, Gemini-assisted reasoning, safety guardrails, persistent state, conversational recovery, Promise-to-Pay tracking, and Razorpay Test Mode payment recovery to decide what should happen next.
 
-The system combines deterministic business rules with Gemini-based reasoning for uncertain payment failures and integrates with Razorpay Test Mode for recovery payment links and webhook-confirmed payment recovery.
+> **Core loop:** Observe → Diagnose → Route → Guard → Act → Observe outcome/time → Persist state → Continue, escalate, or stop
 
 ---
 
 ## Live Demo
 
 ### Frontend
+
 https://recover-ai-nu-pink.vercel.app/
 
 ### Backend
+
 https://recoverai-backend-fj9o.onrender.com/
+
+### GitHub
+
+https://github.com/Yash-tech25/RecoverAI
 
 ---
 
 ## Problem
 
-Failed and abandoned payments directly translate into lost revenue.
+Failed and abandoned payments directly translate into revenue at risk.
 
-Traditional recovery systems often use the same retry or reminder strategy for every failed transaction, even though payment failures can occur for very different reasons.
+Traditional recovery systems often apply the same retry or reminder strategy to every failed transaction, even though payment failures can happen for very different reasons.
 
 Examples include:
 
@@ -34,77 +40,266 @@ Examples include:
 - issuer decline
 - bank restriction
 - repeated failed attempts
+- unclear processor responses
 
-Using the wrong intervention can reduce recovery chances or repeatedly disturb the customer.
+Using the wrong intervention can reduce recovery chances, waste recovery attempts, or repeatedly disturb the customer.
 
-RecoverAI addresses this by choosing a recovery action based on payment context, confidence, previous attempts, and safety policies.
+RecoverAI addresses this by choosing the recovery path based on payment context, confidence, previous attempts, customer response, and safety policies.
+
+---
+
+## Why RecoverAI
+
+RecoverAI is designed as a **bounded multi-channel recovery agent**.
+
+Instead of treating recovery as a single decision, it separates the workflow into distinct stages:
+
+1. **Channel routing** — should this case use payment recovery, conversational recovery, human review, or stop?
+2. **Action selection** — what specific recovery action is appropriate inside that channel?
+3. **Execution safety** — is the action allowed under confidence thresholds, state protection, attempt limits, and policy checks?
+4. **Outcome tracking** — what happened after the action?
+5. **State continuation** — should the system continue, wait, escalate, or stop?
+6. **Auditability** — what did the system decide, why, and when?
+
+This separation keeps the recovery agent explainable and bounded.
 
 ---
 
 ## How RecoverAI Works
 
-RecoverAI uses a hybrid recovery pipeline that combines deterministic rules, AI reasoning, safety checks, and outcome tracking.
+RecoverAI follows a persistent recovery loop:
 
 ```text
-Payment Failure
-      ↓
-Failure Detection
-      ↓
-Deterministic Rule Engine
-      ↓
-Known Failure?
-   ↙       ↘
- Yes       No
-  ↓         ↓
-Rule      Gemini AI
-Action    Analysis
-   ↘       ↙
-  Policy & Guardrails
-          ↓
-  Recovery Execution
-          ↓
-   Outcome Tracking
-          ↓
- Audit Trail + Analytics
+Observe
+  ↓
+Diagnose
+  ↓
+Route
+  ↓
+Apply Guardrails
+  ↓
+Act
+  ↓
+Observe Outcome / Customer Commitment / Time
+  ↓
+Persist State
+  ↓
+Continue / Escalate / Stop
 ```
 
-The agent follows a bounded decision cycle:
+The system combines deterministic routing, AI-assisted reasoning, policy guardrails, payment infrastructure, customer conversation analysis, persistent recovery state, Promise-to-Pay lifecycle tracking, and auditability.
+
+---
+
+## Architecture
+
+![RecoverAI Architecture](docs/architecture.svg)
+
+Editable Mermaid source:
+
+[`docs/architecture.mmd`](docs/architecture.mmd)
+
+### Architecture Summary
 
 ```text
-Observe → Diagnose → Decide → Validate → Execute → Observe Result → Update State
+React + Vite Frontend
+        ↓
+Node.js + Express Backend
+        ↓
+Recovery Orchestrator
+        ↓
+Deterministic Channel Router
+   ↙          ↓           ↘
+Payment   Conversation   Stop
+   ↘          ↓
+     Gemini AI Router
+     for ambiguous cases
+            ↓
+Confidence + Policy Guardrails
+       ↙                ↘
+Payment Recovery    Human Review
+       ↓
+Action Selection + Execution
+       ↓
+Razorpay Test Mode / MongoDB State
+       ↓
+Webhook Confirmation
+       ↓
+Audit Trail + Analytics
+```
+
+Conversational recovery operates as a separate bounded path:
+
+```text
+Conversational Recovery
+        ↓
+Gemini Conversation Analysis
+        ↓
+Intent Classification
+        ↓
+Promise-to-Pay / Callback / Payment Verification / Human Review
+        ↓
+Persistent State + Audit Trail
 ```
 
 ---
 
-## Recovery Strategies
+## Recovery Channels
 
-RecoverAI supports multiple recovery actions depending on the payment failure and customer context.
+RecoverAI first determines the safest recovery **channel**.
 
-| Recovery Action | Purpose |
+| Channel | Purpose |
 |---|---|
-| `RETRY` | Retry a temporary payment failure |
-| `REMIND_LATER` | Schedule a later recovery attempt |
-| `SEND_REMINDER` | Trigger a simulated checkout recovery reminder |
-| `SEND_ALTERNATIVE_PAYMENT_METHOD` | Create a Razorpay Test Mode Payment Link |
-| `OFFER_LOYALTY_INCENTIVE` | Trigger a simulated loyalty-based recovery workflow |
-| `HUMAN_REVIEW` | Escalate uncertain or repeatedly failed cases |
-| `STOP_RECOVERY` | Stop further automated intervention |
-
-Retry, reminder, and loyalty workflows are simulated for evaluation.
-
-`SEND_ALTERNATIVE_PAYMENT_METHOD` is integrated with **Razorpay Test Mode** and creates an actual payment link that can be completed during testing.
+| `PAYMENT_RECOVERY` | Execute or recommend a payment-focused recovery action |
+| `CONVERSATIONAL_RECOVERY` | Ask for customer context and convert the response into a bounded next action |
+| `HUMAN_REVIEW` | Escalate uncertain, sensitive, or low-confidence cases |
+| `STOP_RECOVERY` | Prevent further automated recovery |
 
 ---
 
-## Decision Engine
+## Deterministic Channel Routing
 
-RecoverAI uses a **hybrid decision architecture**.
-
-### Deterministic Rules
-
-Known payment failures are handled using predefined recovery rules without requiring an AI call.
+Known payment situations are handled using deterministic rules before any AI routing is considered.
 
 Examples:
+
+```text
+success
+→ STOP_RECOVERY
+
+attemptCount >= 3
+→ STOP_RECOVERY
+
+timeout
+→ PAYMENT_RECOVERY
+
+insufficient_funds
+→ CONVERSATIONAL_RECOVERY
+
+checkout_abandoned
+→ PAYMENT_RECOVERY
+
+issuer_declined
+→ PAYMENT_RECOVERY
+
+bank_restriction
+→ PAYMENT_RECOVERY
+
+unknown / ambiguous failure
+→ AI_REQUIRED
+```
+
+This makes common routing decisions fast, predictable, and inexpensive.
+
+### Important Routing Distinction
+
+**Channel routing and action selection are separate decisions.**
+
+For example:
+
+```text
+issuer_declined
+→ deterministically selects PAYMENT_RECOVERY
+```
+
+but the exact recovery action inside that payment channel may still require AI-assisted action selection when no specific deterministic action rule exists.
+
+This means a case can have:
+
+```text
+Deterministic channel routing
+        ↓
+AI-assisted action selection
+```
+
+without the architecture being inconsistent.
+
+---
+
+## Gemini AI Routing
+
+When the deterministic router cannot confidently classify the recovery channel, RecoverAI invokes Gemini.
+
+Gemini can recommend one of:
+
+```text
+PAYMENT_RECOVERY
+CONVERSATIONAL_RECOVERY
+HUMAN_REVIEW
+```
+
+The AI router **cannot select `STOP_RECOVERY`**.
+
+Hard stopping remains deterministic.
+
+Gemini returns structured information such as:
+
+```text
+recommended channel
+confidence
+reasoning
+```
+
+The recommendation is not executed blindly.
+
+It must pass confidence and policy checks before the workflow continues.
+
+---
+
+## AI Confidence Gating
+
+AI-assisted routing requires a confidence score of at least:
+
+```text
+0.75
+```
+
+Behavior:
+
+```text
+confidence >= 0.75
+→ eligible to continue
+
+confidence < 0.75
+→ HUMAN_REVIEW
+```
+
+If Gemini is unavailable, times out, or returns invalid output, RecoverAI safely falls back to:
+
+```text
+HUMAN_REVIEW
+```
+
+This avoids autonomous recovery when the AI result is uncertain or unavailable.
+
+---
+
+## Payment Recovery
+
+After a case reaches the payment-recovery channel, RecoverAI selects a specific action.
+
+Supported recovery actions include:
+
+| Action | Behavior |
+|---|---|
+| `RETRY` | Simulated retry for temporary failures |
+| `REMIND_LATER` | Defer recovery until a later point |
+| `SEND_REMINDER` | Simulated checkout recovery reminder |
+| `OFFER_LOYALTY_INCENTIVE` | Simulated loyalty-based recovery workflow |
+| `SEND_ALTERNATIVE_PAYMENT_METHOD` | Create a Razorpay Test Mode Payment Link |
+| `HUMAN_REVIEW` | Escalate uncertain action selection |
+| `STOP_RECOVERY` | Stop further automated intervention |
+| `NO_ACTION` | No recovery required |
+
+Some recovery actions are simulated for evaluation.
+
+`SEND_ALTERNATIVE_PAYMENT_METHOD` is integrated with **Razorpay Test Mode** and can create an actual test Payment Link.
+
+---
+
+## Deterministic Action Selection
+
+Examples of specific deterministic action rules include:
 
 ```text
 timeout
@@ -121,70 +316,204 @@ checkout_abandoned + returning customer
 
 attemptCount >= 3
 → STOP_RECOVERY
+
+success
+→ NO_ACTION
 ```
 
-This makes common recovery decisions fast, predictable, and inexpensive.
+In the final architecture, `insufficient_funds` is normally intercepted earlier by the channel router and sent to conversational recovery.
 
-### Gemini AI Reasoning
-
-When the deterministic engine cannot confidently classify a failure, RecoverAI routes the case to Gemini.
-
-Gemini analyzes payment context including:
-
-- failure reason
-- payment method
-- customer type
-- payment amount
-- previous payment attempts
-
-The AI returns:
-
-```text
-diagnosis
-recommendedAction
-confidence
-reasoning
-```
-
-RecoverAI does not directly trust and execute every AI recommendation. The recommendation must first pass confidence checks and policy guardrails before autonomous execution is allowed.
+The action engine remains useful for payment-channel execution and benchmark evaluation.
 
 ---
 
-## Confidence Gating & Guardrails
+## AI-Assisted Action Selection
 
-RecoverAI uses safety controls to prevent uncertain or excessive autonomous recovery actions.
+If a payment has been routed to `PAYMENT_RECOVERY` but no specific deterministic action rule applies, RecoverAI can ask Gemini for a bounded action recommendation.
 
-### AI Confidence Threshold
+The AI recommendation is still subject to:
 
-AI-driven actions require a confidence score of at least:
+- confidence checks
+- policy validation
+- protected-state checks
+- recovery-attempt limits
+- human-review fallback
 
-```text
-0.75
-```
+If Gemini fails or remains uncertain, the system does not guess.
 
-If the AI confidence is below the threshold, the case is escalated to:
+It safely escalates to:
 
 ```text
 HUMAN_REVIEW
 ```
 
-No autonomous recovery action is executed for that case.
+---
 
-### Maximum Autonomous Recovery Attempts
+## Conversational Recovery
 
-RecoverAI allows a maximum of **2 autonomous recovery attempts**.
+Some payment failures require customer context before the system should act.
 
-If both attempts fail:
+For example:
 
 ```text
-RECOVERY_FAILED
-       ↓
-HUMAN_REVIEW
+insufficient_funds
+→ CONVERSATIONAL_RECOVERY
 ```
 
-The escalation itself does not increase the recovery-attempt counter.
+Instead of blindly retrying, RecoverAI allows the customer to explain the situation.
 
-### Payment Attempt Hard Stop
+Gemini analyzes the customer message and classifies it into bounded intents such as:
+
+```text
+PAY_NOW
+PROMISE_TO_PAY
+NEED_ALTERNATIVE_METHOD
+CALLBACK_REQUEST
+PAYMENT_ALREADY_MADE
+DISPUTE
+UNKNOWN
+```
+
+The analysis can include:
+
+- detected intent
+- confidence
+- language
+- summary
+- promised amount
+- promised date
+- reasoning
+
+---
+
+## Conversational Recovery Actions
+
+The backend converts the classified intent into a bounded action.
+
+Supported actions include:
+
+```text
+CREATE_PAYMENT_LINK
+CREATE_PROMISE_TO_PAY
+SCHEDULE_CALLBACK
+VERIFY_PAYMENT
+HUMAN_REVIEW
+NO_ACTION
+```
+
+Examples:
+
+```text
+PROMISE_TO_PAY
+→ CREATE_PROMISE_TO_PAY
+
+CALLBACK_REQUEST
+→ SCHEDULE_CALLBACK
+
+PAYMENT_ALREADY_MADE
+→ VERIFY_PAYMENT
+
+DISPUTE
+→ HUMAN_REVIEW
+
+UNKNOWN
+→ HUMAN_REVIEW / NO_ACTION
+```
+
+The model does not receive unrestricted control over the system.
+
+Its structured response is interpreted by backend logic and guardrails before any state-changing action is executed.
+
+---
+
+## Promise-to-Pay Lifecycle
+
+RecoverAI can capture a customer's commitment to pay later and persist it as part of the recovery state.
+
+Promise states:
+
+```text
+ACTIVE
+DUE
+KEPT
+BROKEN
+CANCELLED
+```
+
+### Lifecycle protections
+
+- only one open `ACTIVE` or `DUE` promise per payment
+- duplicate identical promise requests are idempotent
+- different duplicate open promises are rejected
+- optimistic concurrency protects status updates
+- allowed transitions are explicitly controlled
+- promise lifecycle events are appended to the audit trail
+- a **24-hour grace period** is applied before a due promise is treated as broken
+
+### Allowed transitions
+
+```text
+ACTIVE
+→ DUE
+→ CANCELLED
+→ KEPT
+
+DUE
+→ KEPT
+→ BROKEN
+→ CANCELLED
+
+BROKEN
+→ ACTIVE
+
+KEPT
+→ terminal
+
+CANCELLED
+→ ACTIVE
+```
+
+The backend validates transitions instead of allowing arbitrary status changes.
+
+---
+
+## Callback Recovery
+
+RecoverAI can persist a callback request as a bounded recovery action.
+
+The system records the callback request in persistent state and appends a corresponding audit event.
+
+RecoverAI does **not** claim to place real phone calls.
+
+The callback feature represents scheduling and recovery-state management rather than telephony infrastructure.
+
+---
+
+## Payment Verification Safety
+
+When a customer indicates that payment has already been made, RecoverAI does not automatically assume recovery success.
+
+Instead, the case is routed toward payment verification or human review.
+
+This prevents customer statements from directly marking a payment as recovered without payment-system evidence.
+
+---
+
+## Recovery Guardrails
+
+RecoverAI is designed as a **bounded** agent rather than an unrestricted financial automation system.
+
+### Maximum autonomous recovery attempts
+
+RecoverAI allows a maximum of:
+
+```text
+2 autonomous recovery attempts
+```
+
+After repeated unsuccessful autonomous interventions, the workflow escalates rather than continuing indefinitely.
+
+### Original payment attempt hard stop
 
 If the original payment already has:
 
@@ -198,11 +527,11 @@ RecoverAI selects:
 STOP_RECOVERY
 ```
 
-without attempting another recovery action.
+without attempting another automated recovery action.
 
-### Protected States
+### Protected states
 
-Cases in the following states cannot be processed again automatically:
+Cases in these states are protected from inappropriate repeat processing:
 
 ```text
 RECOVERED
@@ -211,61 +540,105 @@ PENDING_PAYMENT
 HUMAN_REVIEW
 ```
 
-These guardrails keep the agent bounded and prevent repeated or unsafe automated actions.
+### Confidence gating
+
+```text
+confidence < 0.75
+→ HUMAN_REVIEW
+```
+
+### AI failure fallback
+
+Transient Gemini failures can be retried within a bounded timeout.
+
+If the AI service still fails, RecoverAI safely returns a human-review fallback rather than executing an uncertain action.
 
 ---
 
-## Razorpay Recovery Flow
+## Recovery Execution Lock
 
-For eligible recovery cases, RecoverAI can create a real **Razorpay Test Mode Payment Link**.
+RecoverAI uses a MongoDB-backed recovery execution lock.
+
+The lock prevents two simultaneous recovery requests for the same payment from creating duplicate recovery actions.
+
+Example behavior:
 
 ```text
-AI / Rule Decision
-        ↓
+Request 1
+→ recovery lock acquired
+→ processing continues
+
+Request 2 for same payment
+→ lock already exists
+→ HTTP 409
+→ duplicate recovery prevented
+```
+
+The lock is released after processing completes.
+
+This protects recovery execution from concurrent requests.
+
+---
+
+## Razorpay Test Mode Recovery
+
+For eligible payment-recovery cases, RecoverAI can create a real **Razorpay Test Mode Payment Link**.
+
+```text
+Recovery decision
+      ↓
 SEND_ALTERNATIVE_PAYMENT_METHOD
-        ↓
-Create Razorpay Payment Link
-        ↓
+      ↓
+Create Razorpay Test Mode Payment Link
+      ↓
 PENDING_PAYMENT
-        ↓
-Customer Completes Payment
-        ↓
-Razorpay payment_link.paid Webhook
-        ↓
-Webhook Signature Verification
-        ↓
+      ↓
+Customer completes Test Mode payment
+      ↓
+Razorpay sends payment_link.paid
+      ↓
+Webhook signature verification
+      ↓
+Idempotent state update
+      ↓
 RECOVERED
 ```
 
-A case is counted as Razorpay-confirmed recovered revenue **only after the payment is completed and the signed webhook is successfully received**.
+A payment link is **not** counted as recovered revenue merely because it was created.
 
-Creating a payment link alone does not count as recovered revenue.
+A case becomes Razorpay-confirmed recovered revenue only after the signed webhook is successfully received and processed.
 
-### Webhook Security
+---
 
-Incoming Razorpay webhook requests are verified before any recovery state is modified.
+## Razorpay Webhook Security
+
+Incoming Razorpay webhook requests are verified before recovery state is modified.
 
 The webhook flow includes:
 
 - raw request-body handling
 - HMAC SHA-256 signature verification
+- timing-safe signature comparison
 - payment-link matching
+- Razorpay Payment ID extraction
 - idempotency protection
 - automatic recovery-state update
-- webhook audit logging
+- audit logging
 
-Duplicate webhook deliveries cannot mark the same recovery case as recovered multiple times.
+Duplicate webhook deliveries cannot mark the same case as recovered multiple times.
 
 ---
 
 ## Recovery States
 
-RecoverAI stores the lifecycle of each processed recovery case in MongoDB Atlas.
+RecoverAI persists recovery lifecycle state in MongoDB Atlas.
 
-The main recovery states are:
+Main outcomes include:
 
 ```text
 NOT_PROCESSED
+AWAITING_CONVERSATION
+PROMISE_TO_PAY
 RECOVERY_FAILED
 PENDING_PAYMENT
 RECOVERED
@@ -273,60 +646,151 @@ HUMAN_REVIEW
 STOPPED
 ```
 
-Each recovery state can store information such as:
+A recovery state can include information such as:
 
 - payment ID
+- customer ID
+- selected channel
 - selected recovery action
 - current outcome
-- number of recovery attempts
+- routing source
+- routing confidence
 - decision explanation
-- Razorpay Payment Link ID and URL
+- recovery attempt count
+- Razorpay Payment Link ID
+- Razorpay Payment Link URL
 - Razorpay Payment ID
+- promise information
+- callback information
 - processing timestamp
 - recovery timestamp
 
-This persistent state allows RecoverAI to track a payment across multiple recovery attempts and prevents terminal or pending cases from being processed incorrectly.
+Persistent state allows RecoverAI to continue the recovery lifecycle safely across requests.
+
+---
+
+## Audit Trail
+
+The Audit Trail is a chronological history of recovery activity.
+
+It is separate from the current Recovery Case state.
+
+Audit events can include:
+
+- routing decisions
+- selected channel
+- recovery action
+- action explanation
+- execution result
+- conversation outcome
+- Promise-to-Pay creation
+- Promise-to-Pay lifecycle transitions
+- callback requests
+- recovery stopping
+- human-review escalation
+- Razorpay webhook confirmation
+- Razorpay Payment ID
+- timestamps
+
+Old audit events are not rewritten to mimic the latest recovery state.
+
+This provides traceability across the full agentic recovery lifecycle.
 
 ---
 
 ## Analytics & Evaluation
 
-RecoverAI separates **live recovery evidence** from **synthetic benchmark results** so simulated outcomes are not presented as real recovered revenue.
+RecoverAI separates **live recovery evidence**, **simulated recovery**, and **synthetic benchmark projections**.
 
-### Live Recovery Analytics
+This prevents projected or simulated outcomes from being presented as real payment recovery.
 
-The dashboard tracks actual cases processed through the RecoverAI agent, including:
+---
 
+## Live Recovery Analytics
+
+The dashboard tracks cases processed through the deployed RecoverAI system.
+
+Metrics include:
+
+- total payment records
+- recovery cases
+- processed cases
+- unprocessed cases
 - revenue at risk
 - recovered revenue
 - recovered cases
-- recovery rate
+- confirmed recovery rate
 - pending Razorpay payments
 - human-review cases
 - stopped recoveries
-- recovery strategy performance
+- strategy performance
 - recent recovery activity
 
-Razorpay Test Mode payments confirmed through the webhook are tracked separately from simulated recovery outcomes.
+---
 
-### Safe Synthetic Benchmark
+## Measured Recovery Evidence
+
+### 1. Razorpay-confirmed Test Mode recovery
+
+Only signed `payment_link.paid` webhook confirmations are counted as Razorpay-confirmed recovery.
+
+At the final deployment verification on **4 September 2026**, the live system showed:
+
+```text
+Razorpay-confirmed recovered revenue: ₹22,599
+Razorpay-confirmed recovered cases: 6
+```
+
+These are **Razorpay Test Mode** transactions.
+
+No real merchant funds are transferred.
+
+---
+
+### 2. Simulated recovery
+
+Some recovery strategies are intentionally simulated for evaluation.
+
+At the same verification point:
+
+```text
+Simulated recovered revenue: ₹11,000
+Simulated recovered cases: 3
+```
+
+These values are displayed separately from Razorpay-confirmed recovery.
+
+---
+
+### 3. Combined recovered state in the test dataset
+
+At the same verification point, the system contained:
+
+```text
+Total recovered revenue: ₹33,599
+Total recovered cases: 9
+```
+
+This consists of:
+
+```text
+Razorpay-confirmed: ₹22,599 across 6 cases
+Simulated:          ₹11,000 across 3 cases
+```
+
+The dashboard and analytics keep these categories distinguishable.
+
+---
+
+## Safe Synthetic Benchmark
 
 RecoverAI includes a fixed dataset of **50 synthetic payments** for evaluating the recovery engine.
 
-The benchmark currently contains:
+The benchmark contains:
 
 ```text
 50 synthetic payments
 42 recovery cases
-```
-
-The batch evaluation is intentionally side-effect free:
-
-```text
-0 Gemini API calls
-0 Razorpay Payment Links created
-0 recovery-state mutations
-0 audit-log mutations
 ```
 
 Latest fixed benchmark results:
@@ -341,28 +805,20 @@ Human review cases: 1
 Stopped cases: 4
 ```
 
-These figures are **synthetic projected results** and are not claims about real-world merchant recovery performance.
+The benchmark is intentionally side-effect free:
 
-Razorpay-confirmed Test Mode recoveries are reported separately.
+```text
+0 Gemini API calls
+0 Razorpay Payment Links created
+0 recovery-state mutations
+0 audit-log mutations
+```
 
----
+This makes the benchmark safe to run repeatedly without triggering external recovery actions.
 
-## Audit Trail
+> **42.86% is a projected synthetic recovery rate, not a claim about production merchant performance.**
 
-Every processed recovery decision is recorded in the audit trail.
-
-Audit records capture information such as:
-
-- payment ID
-- selected strategy
-- decision reasoning
-- execution result
-- recovery outcome
-- timestamps
-
-Razorpay payment confirmations are also recorded as webhook audit events.
-
-This provides traceability across the autonomous recovery lifecycle.
+Razorpay-confirmed Test Mode recovery is reported separately.
 
 ---
 
@@ -371,10 +827,11 @@ This provides traceability across the autonomous recovery lifecycle.
 ### Dashboard
 
 - revenue at risk
-- recovered revenue
-- recovery rate
-- pending payments
-- strategy performance
+- Razorpay-confirmed recovered revenue
+- confirmed recovery rate
+- simulated recovery
+- pending Razorpay revenue
+- processed and unprocessed recovery cases
 - recent recovery activity
 - agent status
 
@@ -384,32 +841,49 @@ This provides traceability across the autonomous recovery lifecycle.
 - search by payment or customer ID
 - filter by outcome
 - filter by failure reason
-- inspect agent decisions
-- view payment and recovery attempts
-- manually run eligible recovery cases
+- inspect channel routing
+- inspect recovery decisions
+- view confidence and explanation
+- run eligible recovery cases
 - open Razorpay recovery links
-- monitor webhook-driven status updates
+- launch conversational recovery
+- monitor webhook-driven state changes
+
+### Promise Tracker
+
+- search Promise-to-Pay records
+- view promised amount
+- view promised date
+- inspect current promise status
+- inspect customer language
+- inspect conversation summary
+- inspect analysis confidence
+- track `ACTIVE`, `DUE`, `KEPT`, `BROKEN`, and `CANCELLED`
 
 ### Analytics
 
-- live strategy performance
-- Razorpay-confirmed recoveries
-- simulated recovery results
-- pending recovery revenue
-- safe 50-payment benchmark
-- guardrail outcomes
+- Razorpay-confirmed recovery
+- simulated recovery
+- pending Razorpay payments
+- live recovery rate
+- strategy performance
 - rule-vs-AI routing
+- guardrail outcomes
+- fixed synthetic benchmark
 - projected strategy performance
 
 ### Audit Trail
 
+- routing events
 - recovery decisions
 - execution events
+- conversation events
+- promise lifecycle events
+- callback events
 - payment confirmation events
+- Razorpay Payment IDs
 - timestamps and outcomes
-
----
-
+- search and pagination
 
 ---
 
@@ -423,6 +897,10 @@ This provides traceability across the autonomous recovery lifecycle.
 
 ![Recovery Cases](docs/screenshots/recovery-cases.png)
 
+### Promise Tracker
+
+![Promise Tracker](docs/screenshots/promise-tracker.png)
+
 ### AI Decision and Razorpay-Confirmed Recovery
 
 ![AI Decision](docs/screenshots/ai-decision.png)
@@ -435,6 +913,7 @@ This provides traceability across the autonomous recovery lifecycle.
 
 ![Audit Trail](docs/screenshots/audit-trail.png)
 
+---
 
 ## Tech Stack
 
@@ -467,7 +946,7 @@ This provides traceability across the autonomous recovery lifecycle.
 - Razorpay Test Mode
 - Razorpay Payment Links
 - Razorpay Webhooks
-- HMAC webhook verification
+- HMAC SHA-256 webhook verification
 
 ### Database
 
@@ -478,12 +957,6 @@ This provides traceability across the autonomous recovery lifecycle.
 - Vercel — frontend
 - Render — backend
 - MongoDB Atlas — database
-
----
-
-## Architecture
-
-![RecoverAI Architecture](docs/architecture.svg)
 
 ---
 
@@ -498,14 +971,20 @@ RecoverAI/
 │   │
 │   ├── services/
 │   │   ├── actionExecutor.js
+│   │   ├── aiRecoveryRouterService.js
 │   │   ├── aiRecoveryService.js
 │   │   ├── auditService.js
 │   │   ├── batchEvaluationService.js
+│   │   ├── conversationalRecoveryService.js
+│   │   ├── databaseErrorService.js
 │   │   ├── paymentService.js
 │   │   ├── policyEngine.js
+│   │   ├── promiseLifecycleService.js
 │   │   ├── razorpayService.js
 │   │   ├── recoveryAnalytics.js
 │   │   ├── recoveryEngine.js
+│   │   ├── recoveryOrchestratorService.js
+│   │   ├── recoveryRouterService.js
 │   │   ├── recoverySimulator.js
 │   │   ├── recoveryStateService.js
 │   │   ├── singleRecoveryService.js
@@ -521,8 +1000,13 @@ RecoverAI/
 │   │   ├── App.jsx
 │   │   ├── App.css
 │   │   └── main.jsx
-│   │
 │   └── package.json
+│
+├── docs/
+│   ├── architecture.mmd
+│   ├── architecture.svg
+│   ├── demo-script.md
+│   └── screenshots/
 │
 ├── .gitignore
 └── README.md
@@ -538,7 +1022,7 @@ Create:
 backend/.env
 ```
 
-using:
+using `backend/.env.example` as a reference.
 
 ```env
 MONGO_URI=your_mongodb_atlas_connection_string
@@ -548,13 +1032,14 @@ GEMINI_API_KEY=your_gemini_api_key
 RAZORPAY_KEY_ID=your_razorpay_test_key_id
 RAZORPAY_KEY_SECRET=your_razorpay_test_key_secret
 RAZORPAY_WEBHOOK_SECRET=your_razorpay_webhook_secret
-FRONTEND_URL=https://your-frontend-domain.vercel.app
+
+FRONTEND_URL=http://localhost:5173
 
 NODE_ENV=development
 PORT=5000
 ```
 
-For the deployed frontend environment:
+For the deployed frontend:
 
 ```env
 VITE_API_URL=https://your-backend-domain
@@ -585,7 +1070,7 @@ cd backend
 npm install
 ```
 
-Create the backend `.env` file using `.env.example` as a reference.
+Create `backend/.env` using `.env.example`.
 
 Start the backend:
 
@@ -593,7 +1078,9 @@ Start the backend:
 npm start
 ```
 
-Open another terminal and install frontend dependencies:
+Open another terminal.
+
+Install frontend dependencies:
 
 ```bash
 cd frontend
@@ -606,16 +1093,11 @@ Start the frontend:
 npm run dev
 ```
 
-The frontend runs locally at:
+Local defaults:
 
 ```text
-http://localhost:5173
-```
-
-The backend defaults to:
-
-```text
-http://localhost:5000
+Frontend: http://localhost:5173
+Backend:  http://localhost:5000
 ```
 
 ---
@@ -624,19 +1106,24 @@ http://localhost:5000
 
 RecoverAI includes safeguards appropriate for a bounded autonomous financial workflow:
 
-- bounded autonomous recovery attempts
-- confidence-gated AI execution
+- deterministic hard-stop rules
+- maximum autonomous recovery attempts
+- confidence-gated AI routing
+- confidence-gated AI action selection
 - human escalation
-- payment-attempt stopping rules
-- policy validation before execution
 - protected pending and terminal states
-- webhook signature verification
+- MongoDB-backed recovery execution lock
+- Promise-to-Pay transition validation
+- optimistic concurrency for promise updates
+- server-side payment validation
+- policy validation before execution
+- safe AI failure fallback
+- webhook HMAC verification
 - webhook idempotency
 - API rate limiting
-- server-side payment validation
-- disabled live bulk-recovery behavior
-- safe side-effect-free batch evaluation
-- separation of simulated and Razorpay-confirmed recovery results
+- side-effect-free batch evaluation
+- separation of simulated and Razorpay-confirmed results
+- chronological audit events
 
 ---
 
@@ -646,14 +1133,35 @@ RecoverAI uses synthetic payment-failure data for testing and benchmark evaluati
 
 Razorpay **Test Mode** transactions are used to validate:
 
-- payment-link creation
-- payment completion
+- Payment Link creation
+- test payment completion
 - signed webhook handling
 - automatic recovery-state transition
+- Razorpay Payment ID persistence
+- confirmed recovered-revenue accounting
 
 No actual merchant funds are transferred.
 
 The reported synthetic recovery rate is a deterministic benchmark projection and should not be interpreted as production merchant performance.
+
+---
+
+## Limitations
+
+RecoverAI is a buildathon prototype and intentionally keeps several external actions bounded or simulated.
+
+Current limitations include:
+
+- retry/reminder/loyalty workflows are simulated
+- Razorpay operates in Test Mode
+- no production merchant payment ingestion
+- no real SMS or email delivery
+- no real phone-call execution
+- no merchant authentication or RBAC
+- recovery locks use MongoDB rather than a dedicated distributed lock service
+- benchmark results are synthetic projections
+
+These limitations are kept explicit so evaluation results remain interpretable.
 
 ---
 
@@ -663,13 +1171,14 @@ Possible future extensions include:
 
 - real SMS and email reminder integrations
 - merchant-specific recovery policy configuration
-- learned recovery strategy optimization
 - event-driven payment ingestion
 - Redis-backed distributed recovery locks
 - transactional audit and state updates
 - authentication and role-based access
-- production payment processor integrations
-- strategy experimentation and A/B testing
+- production payment-processor integration
+- merchant-specific strategy tuning
+- recovery experimentation and A/B testing
+- learned strategy optimization
 
 ---
 
@@ -679,4 +1188,8 @@ Possible future extensions include:
 
 **Track: Revenue Recovery**
 
-RecoverAI demonstrates how bounded AI reasoning, deterministic business rules, payment infrastructure, safety guardrails, and measurable recovery outcomes can work together in a practical revenue-recovery agent.
+RecoverAI demonstrates how deterministic business rules, bounded AI reasoning, payment infrastructure, customer conversation analysis, persistent state, Promise-to-Pay tracking, stopping rules, and auditability can work together in a practical revenue-recovery agent.
+
+The system is designed around one principle:
+
+> **Recover revenue where it is safe and justified, escalate uncertainty, and stop when automation should stop.**

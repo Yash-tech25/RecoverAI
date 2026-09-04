@@ -1,47 +1,102 @@
 flowchart TD
 
-    A[React Frontend<br/>Vercel]
+    A[React + Vite Frontend<br/>Vercel]
 
     B[Node.js + Express Backend<br/>Render]
 
-    C[MongoDB Atlas]
+    C[Recovery Orchestrator]
 
-    D[Gemini AI]
+    D[Deterministic Channel Router]
 
-    E[Razorpay Test Mode]
+    E[Gemini AI Router]
 
-    F[Deterministic Rule Engine]
+    F[Payment Recovery]
 
-    G[Policy & Guardrails]
+    G[Conversational Recovery]
 
-    H[Recovery Executor]
+    H[Human Review]
 
-    I[Webhook Handler]
+    I[Stop Recovery]
 
-    J[Audit Trail & Analytics]
+    J[Confidence + Policy Guardrails]
+
+    K[Action Selection + Execution]
+
+    L[Gemini Conversation Analysis]
+
+    M[Promise-to-Pay / Callback / Payment Verification]
+
+    N[(MongoDB Atlas<br/>Recovery State + Promises + Locks)]
+
+    O[Razorpay Test Mode<br/>Payment Links]
+
+    P[Razorpay Webhook Handler<br/>HMAC Verification + Idempotency]
+
+    Q[Audit Trail + Analytics]
+
 
     A -->|HTTPS API| B
 
-    B --> F
+    B --> C
 
-    F -->|Known failure| G
-    F -->|Unknown or uncertain failure| D
+    C --> D
 
-    D -->|Recommendation + confidence| G
 
-    G -->|Approved action| H
-    G -->|Low confidence / limit reached| J
+    D -->|Known payment failure| F
 
-    H -->|Read / write recovery state| C
+    D -->|Insufficient funds| G
 
-    H -->|Create payment link| E
+    D -->|Hard stop condition| I
 
-    E -->|payment_link.paid webhook| I
+    D -->|Unknown / ambiguous failure| E
 
-    I -->|Verify signature + update recovery state| C
 
-    B -->|Read / write application data| C
+    E -->|Payment Recovery| F
 
-    B --> J
+    E -->|Conversational Recovery| G
 
-    C --> J
+    E -->|Low confidence / uncertain| H
+
+
+    F --> J
+
+    J -->|Approved| K
+
+    J -->|Unsafe / low confidence| H
+
+
+    G --> L
+
+    L --> M
+
+    M -->|Promise-to-Pay| N
+
+    M -->|Callback request| N
+
+    M -->|Payment verification| N
+
+    M -->|Sensitive / uncertain| H
+
+
+    K -->|Update recovery state| N
+
+    K -->|Create payment link| O
+
+
+    O -->|payment_link.paid| P
+
+    P -->|Verify signature + update state| N
+
+
+    I --> N
+
+    H --> N
+
+
+    B -->|Read / write application data| N
+
+    N --> Q
+
+    B --> Q
+
+    P --> Q
